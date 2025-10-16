@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <title>Supreme Strategic Campaign Simulator (Iraq)</title>
+    <!-- Using Tailwind CSS from CDN for development - Replace with self-hosted for production -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -107,23 +108,12 @@ const DAILY_GOAL = 100;
 const DAILY_REWARD_COINS = 5000;
 const DAILY_REWARD_TOKENS = 1;
 
-// External config files (Update these URLs to match your GitHub repository)
-const CONFIG_URLS = {
-    parties: 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/config/parties.json',
-    candidates: 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/config/candidates.json',
-    managers: 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/config/managers.json'
-};
-
 // Admin contact information
 const ADMIN_CONTACT = {
     telegram: '@campaign_admin',
     email: 'admin@campaign.com',
     instructions: 'Contact us to activate your candidate or party card for the campaign simulator.'
 };
-
-// GitHub Data Storage (for leaderboard and user data)
-const GITHUB_DATA_URL = 'https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/contents/data/userData.json';
-const GITHUB_TOKEN = 'YOUR_GITHUB_TOKEN'; // You'll need to create a personal access token
 
 const ACHIEVEMENTS = [
     { id: 'taps1', type: 'taps', threshold: 100, title: "First Steps", description: "Reach 100 total taps" },
@@ -145,10 +135,22 @@ const BOOSTS = [
     { id: 'boost_energy', name: "Energy Refill", duration: 0, cost: 3000, energy: 50, icon: '🔋' },
 ];
 
+// Default game configuration (will be used if external config fails)
 let GAME_CONFIG = {
-    parties: {},
-    candidates: [],
-    managers: []
+    parties: {
+        p1: { name: "Sairoon Current", logo: '🇮🇶', color: 'bg-red-700/80', description: "A cross-sectarian alliance.", photo: "https://picsum.photos/seed/p1/80/80", active: true, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
+        p2: { name: "Fatah Alliance", logo: '🛡️', color: 'bg-green-700/80', description: "Coalition of Iran-backed parties.", photo: "https://picsum.photos/seed/p2/80/80", active: false, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
+        p3: { name: "KDP", logo: '⛰️', color: 'bg-yellow-700/80', description: "Kurdistan Democratic Party.", photo: "https://picsum.photos/seed/p3/80/80", active: true, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
+    },
+    candidates: [
+        { id: 1, name: "Mustafa Al-Abadi", party: "p1", campaign: "Anti-Corruption", baseBonus: 1, bid: 1000, maxLevel: 10, logoColor: "border-red-500", policy: "Financial reform.", approval: 75, logo: '💰', specialAbility: "Critical Tap: 5% chance for 3x funds", abilityType: "critical", photo: "https://picsum.photos/seed/c1/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 5000, bio: "Former minister known for anti-corruption efforts.", profitPerHour: 50, active: true, sponsored: false },
+        { id: 2, name: "Fatima Al-Jubouri", party: "p2", campaign: "Infrastructure", baseBonus: 2, bid: 5000, maxLevel: 15, logoColor: "border-blue-500", policy: "Improved utilities.", approval: 88, logo: '⚡', specialAbility: "Double Rewards: 2x daily rewards", abilityType: "doubleRewards", photo: "https://picsum.photos/seed/c2/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 7500, bio: "Infrastructure expert and civil engineer.", profitPerHour: 100, active: true, sponsored: true },
+        { id: 3, name: "Alan Ahmed", party: "p3", campaign: "Regional Economy", baseBonus: 3, bid: 15000, maxLevel: 20, logoColor: "border-yellow-500", policy: "Fair revenue sharing.", approval: 65, logo: '⛽', photo: "https://picsum.photos/seed/c3/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 10000, bio: "Economic advisor specializing in oil revenue.", profitPerHour: 200, active: false, sponsored: false },
+    ],
+    managers: [
+        { id: 'm1', name: "Social Media Director", icon: '📱', description: "Boosts PPH of all cards by 20%", effect: 1.2, cost: 5000 },
+        { id: 'm2', name: "Campaign Manager", icon: '🎯', description: "Boosts PPH of all cards by 50%", effect: 1.5, cost: 15000 },
+    ]
 };
 
 // --- GAME STATE ---
@@ -164,7 +166,9 @@ const formatNumber = (num) => {
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return Math.floor(num).toString();
 };
+
 const getTodayString = () => new Date().toISOString().split('T')[0];
+
 const showMessage = (text, type = 'info') => {
     const messageBox = document.getElementById('messageBox');
     if (!messageBox) return;
@@ -174,118 +178,61 @@ const showMessage = (text, type = 'info') => {
     messageTimeout = setTimeout(() => { messageBox.innerHTML = ''; }, 3000);
 };
 
-// --- EXTERNAL CONFIG LOADING ---
-const loadExternalConfig = async () => {
-    try {
-        // Try to load parties config
-        const partiesResponse = await fetch(CONFIG_URLS.parties);
-        if (partiesResponse.ok) {
-            GAME_CONFIG.parties = await partiesResponse.json();
-        } else {
-            console.warn('Could not load parties config, using default');
-            // Fallback to default config
-            GAME_CONFIG.parties = {
-                p1: { name: "Sairoon Current", logo: '🇮🇶', color: 'bg-red-700/80', description: "A cross-sectarian alliance.", photo: "https://picsum.photos/seed/p1/80/80", active: true, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
-                p2: { name: "Fatah Alliance", logo: '🛡️', color: 'bg-green-700/80', description: "Coalition of Iran-backed parties.", photo: "https://picsum.photos/seed/p2/80/80", active: false, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
-            };
+// --- CORE LOGIC ---
+const calculatePPH = (state) => {
+    let totalPPH = 0;
+    if (!state || !state.userCards) return 0;
+    state.userCards.forEach(card => {
+        if (card.activated) {
+            const candidate = GAME_CONFIG.candidates.find(c => c.id === card.id);
+            if (candidate) {
+                let profit = candidate.profitPerHour * card.level;
+                state.managerCards.forEach(managerId => {
+                    const manager = GAME_CONFIG.managers.find(m => m.id === managerId);
+                    if (manager) profit *= manager.effect;
+                });
+                totalPPH += profit;
+            }
         }
-
-        // Try to load candidates config
-        const candidatesResponse = await fetch(CONFIG_URLS.candidates);
-        if (candidatesResponse.ok) {
-            GAME_CONFIG.candidates = await candidatesResponse.json();
-        } else {
-            console.warn('Could not load candidates config, using default');
-            // Fallback to default config
-            GAME_CONFIG.candidates = [
-                { id: 1, name: "Mustafa Al-Abadi", party: "p1", campaign: "Anti-Corruption", baseBonus: 1, bid: 1000, maxLevel: 10, logoColor: "border-red-500", policy: "Financial reform.", approval: 75, logo: '💰', specialAbility: "Critical Tap: 5% chance for 3x funds", abilityType: "critical", photo: "https://picsum.photos/seed/c1/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 5000, bio: "Former minister known for anti-corruption efforts.", profitPerHour: 50, active: true, sponsored: false },
-            ];
-        }
-
-        // Try to load managers config
-        const managersResponse = await fetch(CONFIG_URLS.managers);
-        if (managersResponse.ok) {
-            GAME_CONFIG.managers = await managersResponse.json();
-        } else {
-            console.warn('Could not load managers config, using default');
-            // Fallback to default config
-            GAME_CONFIG.managers = [
-                { id: 'm1', name: "Social Media Director", icon: '📱', description: "Boosts PPH of all cards by 20%", effect: 1.2, cost: 5000 },
-            ];
-        }
-    } catch (error) {
-        console.error('Error loading external config:', error);
-        // If all external loading fails, use minimal fallback
-        if (Object.keys(GAME_CONFIG.parties).length === 0) {
-            GAME_CONFIG.parties = {
-                p1: { name: "Default Party", logo: '🏛️', color: 'bg-blue-700/80', description: "Default party description.", photo: "https://picsum.photos/seed/default/80/80", active: true, promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000 }
-            };
-        }
-        if (GAME_CONFIG.candidates.length === 0) {
-            GAME_CONFIG.candidates = [
-                { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 1000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: '⭐', photo: "https://picsum.photos/seed/candidate/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000, bio: "Default candidate bio.", profitPerHour: 10, active: true, sponsored: false },
-            ];
-        }
-    }
+    });
+    return Math.floor(totalPPH);
 };
 
-// --- GITHUB DATA STORAGE ---
-const saveUserDataToGitHub = async () => {
-    if (!gameState || !telegramUser) return;
+const calculateTCI = (state) => {
+    if (!state) return 0;
+    const coinsTCI = (state.totalLifetimeCoins || 0) / TCI_SCALING.COINS;
+    const cardsTCI = (state.userCards?.reduce((acc, card) => acc + (card.level || 1), 0) || 0) * TCI_SCALING.CARD_LEVEL;
+    const partiesTCI = (Object.values(state.parties)?.reduce((acc, party) => acc + (party.level || 1), 0) || 0) * TCI_SCALING.PARTY_LEVEL;
+    return Math.floor(coinsTCI + cardsTCI + partiesTCI);
+};
+
+const calculateTapPower = (state) => {
+    if (!state) return 1;
+    let basePower = 1 + (state.userCards?.reduce((acc, card) => {
+        if(card.activated) {
+            const c = GAME_CONFIG.candidates.find(c => c.id === card.id);
+            return acc + (c ? c.baseBonus * (card.level || 1) : 0);
+        }
+        return acc;
+    }, 0) || 0);
     
+    let partyMultiplier = 1 + (Object.values(state.parties)?.reduce((acc, p) => acc + (p.level > 1 ? ((GAME_CONFIG.parties[p.id]?.multiplier || 1.05) - 1) * p.level : 0), 0) || 0);
+    const boostMultiplier = state.activeBoosts?.reduce((acc, b) => acc * (b.multiplier || 1), 1) || 1;
+    const streakBonus = 1 + (STREAK_BONUS[state.streak || 0] / 100);
+
+    return Math.floor(basePower * partyMultiplier * boostMultiplier * streakBonus);
+};
+
+const saveGameState = () => {
+    if(!gameState) return;
     try {
-        // Prepare user data for saving
-        const userData = {
-            telegramUsername: telegramUser.username || 'unknown',
-            telegramId: telegramUser.id || 'unknown',
-            telegramFirstName: telegramUser.first_name || '',
-            telegramLastName: telegramUser.last_name || '',
-            totalCampaignInfluence: gameState.totalCampaignInfluence,
-            coins: gameState.coins,
-            totalTaps: gameState.totalTaps,
-            totalLifetimeCoins: gameState.totalLifetimeCoins,
-            userCards: gameState.userCards,
-            achievements: gameState.achievements,
-            lastUpdated: new Date().toISOString()
-        };
+        gameState.lastPlayTime = Date.now();
+        localStorage.setItem('campaignSimulatorSave', JSON.stringify(gameState));
         
-        // In a real implementation, you would use GitHub API with authentication
-        // For now, we'll save to localStorage as a backup and log the data
-        const userKey = `user_${telegramUser.id}`;
-        localStorage.setItem(userKey, JSON.stringify(userData));
-        
-        // Also save to leaderboard
+        // Also save to leaderboard data
         saveToLeaderboard();
-        
-        console.log('User data saved locally:', userData);
-        
-        // For GitHub integration, you would need to:
-        // 1. Get the current file content from GitHub
-        // 2. Update the user data in the file
-        // 3. Push the updated file back to GitHub
-        // This requires a backend service or GitHub Actions
-        
-    } catch (error) {
-        console.error('Error saving user data:', error);
-    }
-};
-
-const loadUserDataFromGitHub = async () => {
-    if (!telegramUser) return null;
-    
-    try {
-        // Try to load from localStorage first
-        const userKey = `user_${telegramUser.id}`;
-        const savedData = localStorage.getItem(userKey);
-        if (savedData) {
-            return JSON.parse(savedData);
-        }
-        
-        // In a real implementation, you would fetch from GitHub
-        return null;
-    } catch (error) {
-        console.error('Error loading user data:', error);
-        return null;
+    } catch (e) {
+        console.warn("Could not save game state to localStorage.", e);
     }
 };
 
@@ -309,20 +256,6 @@ const saveToLeaderboard = () => {
     }
 };
 
-// --- CORE LOGIC ---
-const saveGameState = () => {
-    if(!gameState) return;
-    try {
-        gameState.lastPlayTime = Date.now();
-        localStorage.setItem('campaignSimulatorSave', JSON.stringify(gameState));
-        
-        // Also save user data to GitHub storage
-        saveUserDataToGitHub();
-    } catch (e) {
-        console.warn("Could not save game state to localStorage.", e);
-    }
-};
-
 const createDefaultGameState = () => ({
     coins: 1000, influenceTokens: 0, dailyTaps: 0, totalTaps: 0,
     totalLifetimeCoins: 1000, userCards: [],
@@ -338,10 +271,10 @@ const createDefaultGameState = () => ({
     lastLoginDate: null, activeBoosts: [], completedMissions: [],
     missionProgress: DAILY_MISSIONS.reduce((acc, m) => { acc[m.id] = { progress: 0 }; return acc; }, {}),
     telegramUsername: 'user_' + Math.random().toString(36).substr(2, 6),
-    appVersion: '1.0.0' // Add version tracking
+    appVersion: '1.0.0'
 });
 
-const loadGameState = async () => {
+const loadGameState = () => {
     let savedStateJSON = null;
     try {
         savedStateJSON = localStorage.getItem('campaignSimulatorSave');
@@ -376,14 +309,6 @@ const loadGameState = async () => {
         }
     }
     
-    // Load user data from GitHub storage if available
-    const userData = await loadUserDataFromGitHub();
-    if (userData) {
-        // Merge with existing game state if needed
-        initialState.totalCampaignInfluence = Math.max(initialState.totalCampaignInfluence, userData.totalCampaignInfluence || 0);
-        initialState.telegramUsername = userData.telegramUsername || initialState.telegramUsername;
-    }
-    
     const now = Date.now();
     const timeOfflineHours = (now - initialState.lastPlayTime) / (1000 * 3600);
     const pph = calculatePPH(initialState);
@@ -410,7 +335,598 @@ const loadGameState = async () => {
     gameState = initialState;
 };
 
-// ... (rest of your existing functions remain the same - calculatePPH, calculateTCI, calculateTapPower, updateAll, checkAchievements, etc.)
+const updateAll = () => {
+    if (!gameState) return;
+    gameState.tapPower = calculateTapPower(gameState);
+    gameState.totalCampaignInfluence = calculateTCI(gameState);
+    renderHeader();
+    renderCurrentTab();
+    saveGameState();
+};
+
+const checkAchievements = () => {
+    const unlocked = [];
+    ACHIEVEMENTS.forEach(ach => {
+        if (gameState.achievements.includes(ach.id)) return;
+        let conditionMet = false;
+        if (ach.type === 'taps' && gameState.totalTaps >= ach.threshold) conditionMet = true;
+        if (ach.type === 'coins' && gameState.totalLifetimeCoins >= ach.threshold) conditionMet = true;
+        if (ach.type === 'cards' && gameState.userCards.length >= ach.threshold) conditionMet = true;
+
+        if (conditionMet) {
+            gameState.achievements.push(ach.id);
+            unlocked.push(ach);
+        }
+    });
+
+    if (unlocked.length > 0) {
+        const achievement = unlocked[0];
+        const content = `<div class="text-center"><div class="text-6xl mb-2">🏆</div><p class="text-gray-300">${achievement.description}</p></div>`;
+        renderModal(`Achievement: ${achievement.title}`, content);
+        saveGameState();
+    }
+};
+
+// --- EVENT HANDLERS ---
+const handleTap = (e) => {
+    e.preventDefault();
+    if (gameState.energy < 1) return;
+
+    const now = Date.now();
+    gameState.energy -= 1;
+    let tapValue = gameState.tapPower;
+    
+    const isCritical = gameState.userCards.some(uc => uc.activated && GAME_CONFIG.candidates.find(c => c.id === uc.id)?.abilityType === 'critical') && Math.random() < 0.05;
+    if (isCritical) tapValue *= 3;
+    
+    gameState.combo = (now - gameState.lastTapTime < COMBO_TIMEOUT) ? gameState.combo + 1 : 1;
+    let comboMultiplier = 1 + Math.min(gameState.combo * 0.05, 1);
+    tapValue = Math.floor(tapValue * comboMultiplier);
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    const feedback = document.createElement('div');
+    feedback.className = 'tap-feedback' + (isCritical ? ' text-amber-300 scale-125' : '');
+    feedback.textContent = `+${formatNumber(tapValue)}`;
+    feedback.style.left = `${clientX - 25}px`;
+    feedback.style.top = `${clientY - 45}px`;
+    document.body.appendChild(feedback);
+    setTimeout(() => { if(feedback.parentElement) feedback.parentElement.removeChild(feedback); }, 900);
+
+    gameState.coins += tapValue;
+    gameState.totalTaps += 1;
+    gameState.dailyTaps += 1;
+    gameState.totalLifetimeCoins += tapValue;
+    gameState.lastTapTime = now;
+    
+    checkMissionProgress('taps', 1);
+    checkMissionProgress('coins', tapValue);
+    
+    if(gameState.dailyTaps === DAILY_GOAL && getTodayString() !== gameState.lastDailyRewardDate) {
+        const doubleRewards = gameState.userCards.some(uc => uc.activated && GAME_CONFIG.candidates.find(c => c.id === uc.id)?.abilityType === 'doubleRewards');
+        const mult = doubleRewards ? 2 : 1;
+        gameState.coins += DAILY_REWARD_COINS * mult;
+        gameState.influenceTokens += DAILY_REWARD_TOKENS * mult;
+        gameState.lastDailyRewardDate = getTodayString();
+        showMessage(`Daily Goal! +${formatNumber(DAILY_REWARD_COINS*mult)}💰 & +${DAILY_REWARD_TOKENS*mult}💎`, 'success');
+    }
+    
+    checkAchievements();
+    updateAll();
+};
+
+const checkMissionProgress = (type, value) => {
+    let missionCompleted = false;
+    DAILY_MISSIONS.forEach(mission => {
+        if(mission.type === type && !gameState.completedMissions.includes(mission.id)) {
+            const progress = gameState.missionProgress[mission.id];
+            progress.progress += value;
+            if (progress.progress >= mission.target) {
+                gameState.completedMissions.push(mission.id);
+                gameState.coins += mission.reward;
+                gameState.totalLifetimeCoins += mission.reward;
+                showMessage(`Mission Complete: ${mission.title}! +${formatNumber(mission.reward)}💰`, 'success');
+                missionCompleted = true;
+            }
+        } else if (mission.type === 'level' && type === 'level' && !gameState.completedMissions.includes(mission.id)) {
+             if (value >= mission.target) {
+                gameState.completedMissions.push(mission.id);
+                gameState.coins += mission.reward;
+                showMessage(`Mission Complete: ${mission.title}! +${formatNumber(mission.reward)}💰`, 'success');
+                missionCompleted = true;
+             }
+        }
+    });
+    if(missionCompleted) updateAll();
+};
+
+// --- RENDER FUNCTIONS ---
+const navigate = (tabName) => {
+    activeTab = tabName;
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.getElementById(tabName)?.classList.remove('hidden');
+    renderNav();
+    renderCurrentTab();
+};
+
+const renderCurrentTab = () => {
+    const container = document.getElementById(activeTab);
+    if (!container) return;
+    const renderers = {
+        tap: renderTapScreen, cards: renderCardsScreen, missions: renderMissionsScreen,
+        media: renderMediaScreen, party: renderPartyScreen, store: renderStoreScreen,
+        leaderboard: renderLeaderboardScreen,
+    };
+    if (renderers[activeTab]) {
+      container.innerHTML = renderers[activeTab]();
+    }
+};
+
+const renderHeader = () => {
+    const pph = calculatePPH(gameState);
+    const energyPercentage = (gameState.energy / ENERGY_MAX) * 100;
+    document.getElementById('header').innerHTML = `
+        <div class="flex justify-around text-center">
+            <div><p class="text-2xl font-extrabold text-yellow-400">${formatNumber(gameState.coins)}</p><p class="text-xs text-gray-400">Funds 💰</p></div>
+            <div><p class="text-2xl font-extrabold text-purple-400">${formatNumber(gameState.influenceTokens)}</p><p class="text-xs text-gray-400">Tokens 💎</p></div>
+            <div><p class="text-2xl font-extrabold text-green-400">${formatNumber(gameState.totalCampaignInfluence)}</p><p class="text-xs text-gray-400">Influence 📈</p></div>
+        </div>
+        <div class="bg-slate-900/50 rounded-lg p-2 mt-3">
+            <div class="flex justify-between items-center text-sm mb-2 px-1">
+                <div class="text-center"><p class="text-blue-400 font-bold">+${formatNumber(gameState.tapPower)}</p><p class="text-gray-400 text-xs">Tap Power</p></div>
+                <div class="text-center"><p class="text-green-400 font-bold">${formatNumber(pph)}/hr</p><p class="text-gray-400 text-xs">PPH</p></div>
+                <div class="text-center"><p class="text-purple-400 font-bold">${gameState.userCards.filter(c=>c.activated).length}</p><p class="text-gray-400 text-xs">Active</p></div>
+            </div>
+            <div>
+                <div class="flex justify-between text-xs mb-1 px-1"><span class="text-yellow-400 font-bold">⚡ Energy</span><span class="text-gray-300">${Math.floor(gameState.energy)}/${ENERGY_MAX}</span></div>
+                <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden"><div class="h-full bg-yellow-400 transition-all duration-300" style="width: ${energyPercentage}%"></div></div>
+            </div>
+        </div>
+        ${gameState.combo > 2 ? `<div class="text-center font-bold text-lg text-yellow-300 mt-2 animate-pulse">${gameState.combo}x Combo!</div>` : ''}
+    `;
+};
+
+const renderNav = () => {
+    const navItems = [
+        { tab: 'tap', icon: '👆', label: 'Tap' }, { tab: 'cards', icon: '🎴', label: 'Cards' },
+        { tab: 'missions', icon: '📋', label: 'Missions' }, { tab: 'media', icon: '📺', label: 'Media' },
+        { tab: 'party', icon: '🏛️', label: 'Party' }, { tab: 'store', icon: '💎', label: 'Store' },
+        { tab: 'leaderboard', icon: '🏆', label: 'Rank' },
+    ];
+    document.querySelector('nav').innerHTML = navItems.map(({ tab, icon, label }) => `
+        <button data-tab="${tab}" class="nav-item flex-1 flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === tab ? 'active' : 'text-gray-400'}">
+            <span class="text-2xl">${icon}</span><span class="text-xs mt-1">${label}</span>
+        </button>
+    `).join('');
+};
+
+const renderTapScreen = () => {
+    const isBoostActive = gameState.activeBoosts.some(b => b.multiplier > 1);
+    const progressPercent = Math.min(100, (gameState.dailyTaps / DAILY_GOAL) * 100);
+    return `
+    <div class="relative mb-8 mt-4">
+        <button id="tapButton" class="w-[230px] h-[230px] rounded-full flex flex-col justify-center items-center text-white font-black text-4xl shadow-lg active:scale-95 transition-transform select-none ${isBoostActive ? 'boost-active' : ''}">
+            Tap! <span class="text-3xl mt-1">+${formatNumber(gameState.tapPower)}</span>
+        </button>
+    </div>
+    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-3 w-full max-w-sm mb-4">
+        <div class="flex justify-between items-center">
+            <div><p class="font-bold text-lg">${gameState.streak} Day Streak</p><p class="text-xs text-yellow-300">Tap Power Bonus: +${STREAK_BONUS[gameState.streak]}%</p></div>
+        </div>
+    </div>
+    <div class="w-full max-w-sm p-4 bg-slate-800/80 rounded-xl border border-slate-700/50">
+        <h3 class="font-bold text-lg text-blue-300 mb-2">Daily Goal (${DAILY_GOAL} Taps)</h3>
+        <p class="text-sm text-gray-400 mb-2 flex justify-between">
+            <span>Progress: ${gameState.dailyTaps}/${DAILY_GOAL}</span>
+            <span class="text-yellow-400">+${formatNumber(DAILY_REWARD_COINS)}💰 & +${DAILY_REWARD_TOKENS}💎</span>
+        </p>
+        <div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full" style="width: ${progressPercent}%"></div></div>
+    </div>
+    `;
+};
+
+const renderCardsScreen = () => `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Candidate Cards</h2>
+    <div class="space-y-4">${GAME_CONFIG.candidates.map(candidate => {
+        const userCard = gameState.userCards.find(c => c.id === candidate.id);
+        const cardClass = userCard ? (userCard.activated ? 'border-green-400 bg-slate-800' : 'border-slate-600 bg-slate-800/70') : 'border-slate-700 bg-slate-800/50';
+        const upgradeCost = userCard ? candidate.bid * userCard.level * 1.5 : 0;
+        return `
+            <div class="p-4 rounded-xl border-2 relative ${cardClass}">
+                ${candidate.sponsored ? `<div class="absolute top-2 right-2 text-xs bg-yellow-500 text-black font-bold px-2 py-0.5 rounded-full">Sponsored</div>` : ''}
+                <div class="flex gap-4 items-start">
+                    <img src="${candidate.photo}" alt="${candidate.name}" class="w-20 h-20 rounded-full object-cover border-4 ${candidate.logoColor}" />
+                    <div class="flex-1">
+                        <div class="flex justify-between"><h3 class="font-bold text-lg">${candidate.name}</h3>${userCard ? `<p class="font-bold text-yellow-400">Lv. ${userCard.level}</p>`: ''}</div>
+                        <p class="text-sm text-gray-400">${GAME_CONFIG.parties[candidate.party].name}</p>
+                        <p class="text-xs text-gray-300 mt-1">PPH: +${formatNumber(candidate.profitPerHour * (userCard ? userCard.level : 1))}</p>
+                    </div>
+                </div>
+                <div class="flex justify-between mt-4 gap-2">
+                    ${userCard ? `
+                        <button data-action="toggleActivateCard" data-id="${candidate.id}" class="w-1/2 py-2 rounded font-bold text-white ${userCard.activated ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'}">${userCard.activated ? 'Deactivate' : 'Activate'}</button>
+                        <button data-action="upgradeCard" data-id="${candidate.id}" class="w-1/2 bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" ${gameState.coins < upgradeCost ? 'disabled' : ''}>Upgrade (${formatNumber(upgradeCost)}💰)</button>
+                    ` : `
+                        <button data-action="buyCard" data-id="${candidate.id}" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" ${!candidate.active || gameState.coins < candidate.bid ? 'disabled' : ''}>${candidate.active ? `Buy (${formatNumber(candidate.bid)}💰)` : 'Unavailable'}</button>
+                    `}
+                </div>
+                ${!candidate.active ? `<p class="text-xs text-red-400 mt-2">Card inactive. Contact admin to activate: ${ADMIN_CONTACT.telegram}</p>` : ''}
+            </div>`;
+    }).join('')}</div>`;
+
+const renderMissionsScreen = () => `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Daily Missions</h2>
+    <div class="space-y-3">${DAILY_MISSIONS.map(mission => {
+        const progress = gameState.missionProgress[mission.id]?.progress || 0;
+        const isCompleted = gameState.completedMissions.includes(mission.id);
+        const percent = isCompleted ? 100 : Math.min(100, (progress / mission.target) * 100);
+        return `
+            <div class="bg-slate-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="font-bold text-white">${mission.title}</h4>
+                    <span class="text-yellow-400 font-bold">+${formatNumber(mission.reward)} 💰</span>
+                </div>
+                <p class="text-sm text-gray-400 mb-3">${mission.description}</p>
+                <div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full" style="width: ${percent}%"></div></div>
+                <div class="text-right text-xs mt-1 text-gray-300">${isCompleted ? 'Completed' : `${formatNumber(progress)} / ${formatNumber(mission.target)}`}</div>
+            </div>`;
+    }).join('')}</div>`;
+
+const renderMediaScreen = () => {
+    const activeCandidates = GAME_CONFIG.candidates.filter(c => c.active);
+    const activeParties = Object.entries(GAME_CONFIG.parties).filter(([id, p]) => p.active);
+
+    const candidateMedia = activeCandidates.map(candidate => `
+        <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
+             <img src="${candidate.photo}" alt="${candidate.name}" class="w-24 h-24 rounded-lg object-cover" />
+             <div class="flex-1">
+                <h3 class="font-bold text-lg">${candidate.name}</h3>
+                <p class="text-sm text-gray-400 mb-2">${candidate.bio}</p>
+                <button data-action="watchVideo" data-type="candidate" data-id="${candidate.id}" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm disabled:bg-gray-500" ${gameState.watchedVideos['c' + candidate.id] ? 'disabled' : ''}>
+                    ${gameState.watchedVideos['c' + candidate.id] ? 'Watched' : `Watch Video (+${formatNumber(candidate.videoReward)}💰)`}
+                </button>
+             </div>
+        </div>
+    `).join('');
+
+    const partyMedia = activeParties.map(([id, party]) => `
+         <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
+             <img src="${party.photo}" alt="${party.name}" class="w-24 h-24 rounded-lg object-cover" />
+             <div class="flex-1">
+                <h3 class="font-bold text-lg">${party.name}</h3>
+                <p class="text-sm text-gray-400 mb-2">${party.description}</p>
+                <button data-action="watchVideo" data-type="party" data-id="${id}" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm disabled:bg-gray-500" ${gameState.watchedVideos['p' + id] ? 'disabled' : ''}>
+                    ${gameState.watchedVideos['p' + id] ? 'Watched' : `Watch Video (+${formatNumber(party.videoReward)}💰)`}
+                </button>
+             </div>
+        </div>
+    `).join('');
+
+    return `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Media</h2>
+    <div class="space-y-4">
+        <h3 class="font-bold text-lg text-blue-300">Candidates</h3>
+        ${candidateMedia || '<p class="text-gray-400 text-sm">No active candidate media.</p>'}
+        <h3 class="font-bold text-lg text-blue-300 mt-4">Parties</h3>
+        ${partyMedia || '<p class="text-gray-400 text-sm">No active party media.</p>'}
+    </div>`;
+}
+    
+const renderPartyScreen = () => `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Political Parties</h2>
+    <div class="space-y-4">${Object.entries(GAME_CONFIG.parties).filter(([id, party]) => party.active).map(([id, party]) => {
+        const partyState = gameState.parties[id];
+        const xpPercent = (partyState.xp / (partyState.level * 500)) * 100;
+        const upgradeCost = partyState.level * 5;
+        return `
+            <div class="p-4 rounded-xl border border-slate-700 ${party.color}">
+                <div class="flex gap-4 items-center">
+                    <img src="${party.photo}" alt="${party.name}" class="w-16 h-16 rounded-full object-cover border-4 border-slate-400" />
+                    <div class="flex-1">
+                        <h3 class="font-bold text-lg">${party.name}</h3>
+                        <p class="text-sm text-gray-200">Level ${partyState.level}</p>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-200 my-3">${party.description}</p>
+                <div class="text-xs text-gray-200">XP: ${formatNumber(partyState.xp)} / ${formatNumber(partyState.level * 500)}</div>
+                <div class="w-full bg-gray-600 rounded-full h-2 mb-3"><div class="bg-green-500 h-2 rounded-full" style="width: ${xpPercent}%"></div></div>
+                <div class="flex gap-2">
+                    <button data-action="investParty" data-id="${id}" class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">Invest (1k💰)</button>
+                    <button data-action="upgradeParty" data-id="${id}" class="w-1/2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded disabled:bg-gray-500" ${gameState.influenceTokens < upgradeCost ? 'disabled' : ''}>Upgrade (${upgradeCost}💎)</button>
+                </div>
+            </div>`;
+    }).join('') || '<p class="text-center text-gray-400">No active parties available.</p>'}</div>`;
+
+const renderStoreScreen = () => `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Store</h2>
+    <div class="space-y-4">
+        <div>
+            <h3 class="font-bold text-lg text-blue-300 mb-2">Staff</h3>
+            ${GAME_CONFIG.managers.map(manager => `
+            <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2">
+                <div>
+                    <h4 class="font-bold text-white"><span class="text-2xl">${manager.icon}</span> ${manager.name}</h4>
+                    <p class="text-sm text-gray-400">${manager.description}</p>
+                </div>
+                <button data-action="buyManager" data-id="${manager.id}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.managerCards.includes(manager.id) || gameState.coins < manager.cost ? 'disabled' : ''}>
+                    ${gameState.managerCards.includes(manager.id) ? 'Hired' : `Hire (${formatNumber(manager.cost)}💰)`}
+                </button>
+            </div>`).join('')}
+        </div>
+        <div>
+            <h3 class="font-bold text-lg text-purple-400 mb-2">Boosts</h3>
+            ${BOOSTS.map(boost => `
+            <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2">
+                <div>
+                    <h4 class="font-bold text-white"><span class="text-2xl">${boost.icon}</span> ${boost.name}</h4>
+                    <p class="text-sm text-gray-400">${boost.duration > 0 ? `${boost.duration} seconds` : 'Instant effect'}</p>
+                </div>
+                <button data-action="activateBoost" data-id="${boost.id}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.coins < boost.cost ? 'disabled' : ''}>
+                    Activate (${formatNumber(boost.cost)}💰)
+                </button>
+            </div>`).join('')}
+        </div>
+    </div>`;
+
+const renderLeaderboardScreen = () => {
+    // Get leaderboard data from localStorage
+    let leaderboardData = {};
+    try {
+        leaderboardData = JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}');
+    } catch (e) {
+        console.warn("Could not load leaderboard data", e);
+    }
+    
+    // Convert to array and sort by score
+    const leaderboardArray = Object.values(leaderboardData).sort((a, b) => b.score - a.score);
+    
+    // Add current user if not in leaderboard
+    const currentUserInLeaderboard = leaderboardArray.find(u => u.username === (telegramUser?.username || gameState.telegramUsername));
+    if (!currentUserInLeaderboard) {
+        leaderboardArray.push({
+            username: telegramUser?.username || gameState.telegramUsername,
+            score: gameState.totalCampaignInfluence,
+            coins: gameState.coins,
+            totalTaps: gameState.totalTaps,
+            isCurrentUser: true
+        });
+    }
+    
+    // Take top 10
+    const topPlayers = leaderboardArray.slice(0, 10);
+    
+    return `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Leaderboard</h2>
+    <div class="space-y-2">${topPlayers.map((player, index) => `
+        <div class="flex items-center bg-slate-800 p-3 rounded-lg ${player.isCurrentUser ? 'border-2 border-blue-500' : ''}">
+            <div class="text-lg font-bold w-8 text-center text-gray-400">${index + 1}</div>
+            <div class="font-bold flex-1">${player.username}</div>
+            <div class="font-bold text-yellow-400">${formatNumber(player.score)} TCI</div>
+        </div>
+    `).join('')}</div>
+    <div class="mt-4 p-4 bg-slate-800 rounded-lg">
+        <h3 class="font-bold text-lg mb-2">Your Stats</h3>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+            <div class="bg-slate-700 p-2 rounded">Total Taps: ${formatNumber(gameState.totalTaps)}</div>
+            <div class="bg-slate-700 p-2 rounded">Lifetime Funds: ${formatNumber(gameState.totalLifetimeCoins)}</div>
+            <div class="bg-slate-700 p-2 rounded">Cards Owned: ${gameState.userCards.length}</div>
+            <div class="bg-slate-700 p-2 rounded">Achievements: ${gameState.achievements.length}/${ACHIEVEMENTS.length}</div>
+        </div>
+    </div>`;
+};
+
+const renderModal = (title, content, showClose = true) => {
+    document.getElementById('modalContainer').innerHTML = `
+        <div data-action="closeModal" class="modal-overlay"></div>
+        <div class="modal bg-slate-800 w-[90%] max-w-lg rounded-xl p-6 border-2 border-blue-500 shadow-lg">
+            <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">${title}</h2>
+            <div>${content}</div>
+            ${showClose ? `<button data-action="closeModal" class="w-full mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">Close</button>` : ''}
+        </div>`;
+};
+
+const closeModal = () => {
+    document.getElementById('modalContainer').innerHTML = '';
+};
+
+const renderAdminPanelContent = () => {
+    const candidateListHtml = GAME_CONFIG.candidates.map(candidate => `
+        <div class="flex items-center justify-between p-2 bg-slate-900 rounded mb-2">
+            <span class="font-bold ${candidate.active ? 'text-green-400' : 'text-gray-500'}">${candidate.name}</span>
+            <div class="flex space-x-2">
+                <button data-action="adminToggleActive" data-type="candidate" data-id="${candidate.id}" class="text-xs py-1 px-2 rounded ${candidate.active ? 'bg-yellow-600' : 'bg-green-600'}">
+                    ${candidate.active ? 'Deactivate' : 'Activate'}
+                </button>
+                <button data-action="adminToggleSponsor" data-id="${candidate.id}" class="text-xs py-1 px-2 rounded ${candidate.sponsored ? 'bg-purple-500' : 'bg-gray-500'}">
+                    ${candidate.sponsored ? 'Unsponsor' : 'Sponsor'}
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    const partyListHtml = Object.entries(GAME_CONFIG.parties).map(([id, party]) => `
+         <div class="flex items-center justify-between p-2 bg-slate-900 rounded mb-2">
+            <span class="font-bold ${party.active ? 'text-green-400' : 'text-gray-500'}">${party.name}</span>
+            <div class="flex space-x-2">
+                <button data-action="adminToggleActive" data-type="party" data-id="${id}" class="text-xs py-1 px-2 rounded ${party.active ? 'bg-yellow-600' : 'bg-green-600'}">
+                    ${party.active ? 'Deactivate' : 'Activate'}
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    return `
+        <div class="text-left max-h-[60vh] overflow-y-auto pr-2">
+            <div class="bg-blue-900/30 p-3 rounded-lg mb-4">
+                <h3 class="font-bold text-blue-300 mb-2">Contact Information</h3>
+                <p class="text-sm text-gray-300 mb-1">Telegram: ${ADMIN_CONTACT.telegram}</p>
+                <p class="text-sm text-gray-300 mb-1">Email: ${ADMIN_CONTACT.email}</p>
+                <p class="text-xs text-gray-400 mt-2">${ADMIN_CONTACT.instructions}</p>
+            </div>
+            
+            <h4 class="font-bold text-blue-400 mb-2">Candidate Activation</h4>
+            <div id="candidateActivationList">${candidateListHtml}</div>
+            <hr class="my-4 border-slate-600">
+            <h4 class="font-bold text-blue-400 mb-2">Party Activation</h4>
+            <div id="partyActivationList">${partyListHtml}</div>
+            <hr class="my-4 border-slate-600">
+            <h4 class="font-bold text-purple-400 mb-2">Export Game Data</h4>
+            <button data-action="adminExportData" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded">Export Data</button>
+            <button data-action="adminAddCoins" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded mt-2">Add 10,000 Coins</button>
+        </div>
+    `;
+};
+
+// --- ACTION HANDLERS ---
+const handleAction = (e) => {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+
+    const { action, id, type } = target.dataset;
+    const actions = {
+        closeModal,
+        buyCard: () => {
+            const c = GAME_CONFIG.candidates.find(c => c.id == id);
+            if (c && gameState.coins >= c.bid) {
+                gameState.coins -= c.bid;
+                gameState.userCards.push({ id: c.id, level: 1, activated: false });
+                showMessage(`Hired ${c.name}!`, 'success');
+                checkAchievements();
+                updateAll();
+            }
+        },
+        upgradeCard: () => {
+            const c = GAME_CONFIG.candidates.find(c => c.id == id);
+            const uc = gameState.userCards.find(uc => uc.id == id);
+            if (c && uc) {
+                const cost = c.bid * uc.level * 1.5;
+                if (gameState.coins >= cost) {
+                    gameState.coins -= cost;
+                    uc.level++;
+                    showMessage(`${c.name} upgraded to Lv.${uc.level}!`, 'success');
+                    checkMissionProgress('level', uc.level);
+                    updateAll();
+                }
+            }
+        },
+        toggleActivateCard: () => {
+            const uc = gameState.userCards.find(uc => uc.id == id);
+            if (uc) uc.activated = !uc.activated;
+            updateAll();
+        },
+        watchVideo: () => {
+            const item = type === 'candidate' 
+                ? GAME_CONFIG.candidates.find(c => c.id == id)
+                : GAME_CONFIG.parties[id];
+            const watchId = (type === 'candidate' ? 'c' : 'p') + id;
+            if (item && !gameState.watchedVideos[watchId]) {
+                const videoUrl = item.promoVideo.replace("watch?v=", "embed/");
+                const content = `
+                    <div class="aspect-w-16 aspect-h-9">
+                        <iframe src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-64 rounded"></iframe>
+                    </div>
+                    <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" class="w-full mt-4 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded">Claim Reward & Close</button>
+                `;
+                renderModal(`${item.name} - Campaign Video`, content, false);
+            }
+        },
+        claimVideoReward: () => {
+            const item = type === 'candidate' 
+                ? GAME_CONFIG.candidates.find(c => c.id == id)
+                : GAME_CONFIG.parties[id];
+            const watchId = (type === 'candidate' ? 'c' : 'p') + id;
+            if (item && !gameState.watchedVideos[watchId]) {
+                gameState.coins += item.videoReward;
+                gameState.watchedVideos[watchId] = true;
+                showMessage(`Watched video, +${formatNumber(item.videoReward)}💰!`, 'success');
+                closeModal();
+                updateAll();
+            }
+        },
+        investParty: () => {
+            const partyState = gameState.parties[id];
+            if (partyState && gameState.coins >= 1000) {
+                gameState.coins -= 1000;
+                partyState.xp += 100;
+                partyState.totalInvestment += 1000;
+                if(partyState.xp >= partyState.level * 500) {
+                    partyState.xp -= partyState.level * 500;
+                    partyState.level++;
+                    showMessage(`${GAME_CONFIG.parties[id].name} leveled up to Lv.${partyState.level}!`, 'success');
+                }
+                updateAll();
+            }
+        },
+        upgradeParty: () => {
+            const partyState = gameState.parties[id];
+            const cost = partyState.level * 5;
+            if(partyState && gameState.influenceTokens >= cost) {
+                gameState.influenceTokens -= cost;
+                partyState.level++;
+                showMessage(`${GAME_CONFIG.parties[id].name} upgraded to Lv.${partyState.level}!`, 'success');
+                updateAll();
+            }
+        },
+        buyManager: () => {
+            const m = GAME_CONFIG.managers.find(m => m.id === id);
+            if(m && gameState.coins >= m.cost) {
+                gameState.coins -= m.cost;
+                gameState.managerCards.push(id);
+                showMessage(`Hired ${m.name}!`, 'success');
+                updateAll();
+            }
+        },
+        activateBoost: () => {
+            const b = BOOSTS.find(b => b.id === id);
+            if(b && gameState.coins >= b.cost) {
+                gameState.coins -= b.cost;
+                if(b.energy) gameState.energy = Math.min(ENERGY_MAX, gameState.energy + b.energy);
+                if(b.duration > 0) {
+                    gameState.activeBoosts.push({ id, endTime: Date.now() + b.duration * 1000, multiplier: b.multiplier });
+                }
+                showMessage(`${b.name} activated!`, 'success');
+                updateAll();
+            }
+        },
+        adminToggleActive: () => {
+            const collection = type === 'candidate' ? GAME_CONFIG.candidates : GAME_CONFIG.parties;
+            const item = type === 'candidate' ? collection.find(c => c.id == id) : collection[id];
+            if (item) item.active = !item.active;
+            renderModal('Admin Panel', renderAdminPanelContent());
+            updateAll();
+        },
+        adminToggleSponsor: () => {
+            const c = GAME_CONFIG.candidates.find(c => c.id == id);
+            if (c) c.sponsored = !c.sponsored;
+            renderModal('Admin Panel', renderAdminPanelContent());
+            updateAll();
+        },
+        adminExportData: () => {
+            try {
+                const dataStr = JSON.stringify(gameState, null, 2);
+                const blob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `campaign-save-${getTodayString()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showMessage('Game data exported!', 'success');
+            } catch (e) {
+                showMessage('Failed to export data.', 'error');
+                console.error(e);
+            }
+        },
+        adminAddCoins: () => {
+            gameState.coins += 10000;
+            showMessage('Added 10,000 coins!', 'success');
+            updateAll();
+        }
+    };
+
+    actions[action]?.();
+};
 
 // --- TELEGRAM INTEGRATION ---
 const initTelegram = () => {
@@ -437,22 +953,6 @@ const initTelegram = () => {
         if (tg.themeParams) {
             document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#0f172a');
             document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#ffffff');
-            document.documentElement.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color || '#3b82f6');
-            document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color || '#ffffff');
-        }
-        
-        // Handle back button
-        tg.BackButton.onClick(() => {
-            if (activeTab !== 'tap') {
-                navigate('tap');
-            } else {
-                tg.close();
-            }
-        });
-        
-        // Show back button when not on main screen
-        if (activeTab !== 'tap') {
-            tg.BackButton.show();
         }
         
     } else {
@@ -470,32 +970,10 @@ const initTelegram = () => {
 };
 
 // --- INITIALIZATION ---
-const initGame = async () => {
-    // Load external configuration first
-    await loadExternalConfig();
-    
-    // Then load game state
-    await loadGameState();
-    
-    // Initialize Telegram integration
+const initGame = () => {
+    loadGameState();
     initTelegram();
-    
-    // Set up event listeners
-    document.body.addEventListener('click', (e) => {
-        handleAction(e);
-        const navButton = e.target.closest('[data-tab]');
-        if (navButton) navigate(navButton.dataset.tab);
-        if (e.target.id === 'tapButton') handleTap(e);
-    });
-    
-    document.body.addEventListener('touchstart', (e) => {
-        if (e.target.id === 'tapButton') handleTap(e);
-    }, { passive: false });
 
-    document.getElementById('adminToggle').addEventListener('click', () => {
-        renderModal('Admin Panel', renderAdminPanelContent());
-    });
-    
     // Game loop for energy and boosts
     setInterval(() => {
         if (!gameState) return;
@@ -513,22 +991,28 @@ const initGame = async () => {
         }
     }, 1000);
 
-    // Auto-save every 30 seconds
-    setInterval(saveGameState, 30000);
+    // Single delegated event listener for all actions
+    document.body.addEventListener('click', (e) => {
+        handleAction(e);
+        const navButton = e.target.closest('[data-tab]');
+        if (navButton) navigate(navButton.dataset.tab);
+        if (e.target.id === 'tapButton') handleTap(e);
+    });
     
-    // Initialize UI
+    document.body.addEventListener('touchstart', (e) => {
+        if (e.target.id === 'tapButton') handleTap(e);
+    }, { passive: false });
+
+    document.getElementById('adminToggle').addEventListener('click', () => {
+        renderModal('Admin Panel', renderAdminPanelContent());
+    });
+    
     navigate('tap');
     updateAll();
     document.getElementById('loadingIndicator').style.display = 'none';
 };
 
-// Make sure to update your render functions to use GAME_CONFIG instead of hardcoded config
-
-// Initialize the game
 initGame();
-
-// ... (rest of your existing code for render functions, action handlers, etc.)
-
 });
 </script>
 </body>
