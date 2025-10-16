@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>Supreme Strategic Campaign Simulator (Iraq)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 70%, #0f172a 100%);
+            overscroll-behavior-y: contain;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .tap-feedback {
+            position: absolute;
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #fcd34d;
+            text-shadow: 0 2px 8px #000;
+            pointer-events: none;
+            animation: floatup 0.9s ease-out forwards;
+            white-space: nowrap;
+            z-index: 100;
+        }
+        @keyframes floatup {
+            0% { transform: translateY(0) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-80px) scale(0.8); opacity: 0; }
+        }
+        #tapButton {
+            width: 230px;
+            height: 230px;
+            background: radial-gradient(circle at center, #3b82f6 0%, #1e40af 70%, #1e3a8a 100%);
+            border: 6px solid #fef3c7;
+            text-shadow: 0 4px 10px rgba(0, 0, 0, 0.9);
+            box-shadow: 0 15px 40px rgba(37, 99, 235, 0.7), 0 0 0 15px rgba(254, 243, 199, 0.2);
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            touch-action: manipulation;
+        }
+        #tapButton.boost-active {
+             animation: boostPulse 1s infinite;
+        }
+        @keyframes boostPulse {
+            0% { box-shadow: 0 15px 40px rgba(37, 99, 235, 0.7), 0 0 0 15px rgba(254, 243, 199, 0.2); }
+            50% { box-shadow: 0 20px 60px rgba(59, 130, 246, 0.9), 0 0 0 20px rgba(254, 243, 199, 0.5); }
+            100% { box-shadow: 0 15px 40px rgba(37, 99, 235, 0.7), 0 0 0 15px rgba(254, 243, 199, 0.2); }
+        }
+        #tapButton:active { transform: scale(0.95); }
+        .nav-item.active { color: #3b82f6; background-color: #1e293b; }
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 1000; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
+</head>
+<body class="text-slate-100 p-4 pb-24 max-w-lg mx-auto min-h-screen">
+
+    <div id="loadingIndicator" class="fixed inset-0 bg-gray-900/90 z-[2000] flex justify-center items-center">
+        <div class="text-center">
+            <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-yellow-500 mb-4"></div>
+            <p class="text-white text-xl">Loading Campaign Data...</p>
+        </div>
+    </div>
+
+    <div id="messageBox" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-[100]"></div>
+    
+    <button id="adminToggle" class="fixed top-4 right-4 z-50 bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg"><i class="fa fa-cog"></i></button>
+
+    <header id="header" class="w-full mb-4 p-4 bg-slate-800/80 rounded-xl shadow-2xl border border-slate-700/50 sticky top-4 z-30">
+        <!-- Header content will be dynamically rendered by JS -->
+    </header>
+
+    <main class="w-full flex-grow">
+        <div id="tap" class="tab-content flex flex-col items-center"></div>
+        <div id="cards" class="tab-content hidden"></div>
+        <div id="missions" class="tab-content hidden"></div>
+        <div id="media" class="tab-content hidden"></div>
+        <div id="party" class="tab-content hidden"></div>
+        <div id="store" class="tab-content hidden"></div>
+        <div id="leaderboard" class="tab-content hidden"></div>
+    </main>
+
+    <nav class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto w-full flex justify-around p-2 border-t border-gray-700/50 rounded-t-xl z-40 bg-[#0f172a]">
+        <!-- Nav items will be dynamically rendered by JS -->
+    </nav>
+    
+    <div id="modalContainer"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+// --- CONSTANTS & CONFIG ---
+const TCI_SCALING = { COINS: 10000, CARD_LEVEL: 10, PARTY_LEVEL: 50 };
+const ENERGY_MAX = 100;
+const ENERGY_REGEN_RATE = 1;
+const COMBO_TIMEOUT = 2000;
+const STREAK_BONUS = [0, 5, 10, 15, 20, 25, 30, 40, 50, 75];
+const DAILY_GOAL = 100;
+const DAILY_REWARD_COINS = 5000;
+const DAILY_REWARD_TOKENS = 1;
+
+// External config files (Update these URLs to match your GitHub repository)
+const CONFIG_URLS = {
+    parties: 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/config/parties.json',
+    candidates: 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/config/candidates.json',
+    managers: 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/config/managers.json'
+};
+
+// Admin contact information
+const ADMIN_CONTACT = {
+    telegram: '@campaign_admin',
+    email: 'admin@campaign.com',
+    instructions: 'Contact us to activate your candidate or party card for the campaign simulator.'
+};
+
+// GitHub Data Storage (for leaderboard and user data)
+const GITHUB_DATA_URL = 'https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/contents/data/userData.json';
+const GITHUB_TOKEN = 'YOUR_GITHUB_TOKEN'; // You'll need to create a personal access token
+
+const ACHIEVEMENTS = [
+    { id: 'taps1', type: 'taps', threshold: 100, title: "First Steps", description: "Reach 100 total taps" },
+    { id: 'taps2', type: 'taps', threshold: 500, title: "Getting Serious", description: "Reach 500 total taps" },
+    { id: 'taps3', type: 'taps', threshold: 1000, title: "Dedicated Campaigner", description: "Reach 1,000 total taps" },
+    { id: 'coins1', type: 'coins', threshold: 10000, title: "Wealthy Backer", description: "Accumulate 10,000 coins" },
+    { id: 'cards1', type: 'cards', threshold: 3, title: "Building a Team", description: "Own 3 candidate cards" },
+];
+
+const DAILY_MISSIONS = [
+    { id: 1, type: 'taps', target: 50, reward: 1000, title: "Tap 50 Times", description: "Basic tapping mission" },
+    { id: 2, type: 'taps', target: 200, reward: 5000, title: "Tap 200 Times", description: "Advanced tapping mission" },
+    { id: 3, type: 'coins', target: 10000, reward: 2000, title: "Earn 10,000 Funds", description: "Wealth accumulation" },
+    { id: 4, type: 'level', target: 3, reward: 3000, title: "Upgrade a Card to Lv.3", description: "Strengthen your team" },
+];
+
+const BOOSTS = [
+    { id: 'boost_2x', name: "2x Multiplier", duration: 60, cost: 5000, multiplier: 2, icon: '⚡' },
+    { id: 'boost_energy', name: "Energy Refill", duration: 0, cost: 3000, energy: 50, icon: '🔋' },
+];
+
+let GAME_CONFIG = {
+    parties: {},
+    candidates: [],
+    managers: []
+};
+
+// --- GAME STATE ---
+let gameState;
+let activeTab = 'tap';
+let messageTimeout;
+let telegramUser = null;
+
+// --- UTILS ---
+const formatNumber = (num) => {
+  if (isNaN(num) || num === null) return '0';
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+  return Math.floor(num).toString();
+};
+const getTodayString = () => new Date().toISOString().split('T')[0];
+const showMessage = (text, type = 'info') => {
+    const messageBox = document.getElementById('messageBox');
+    if (!messageBox) return;
+    clearTimeout(messageTimeout);
+    const color = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+    messageBox.innerHTML = `<div class="${color} text-white text-center font-bold p-3 rounded-lg shadow-lg animate-pulse">${text}</div>`;
+    messageTimeout = setTimeout(() => { messageBox.innerHTML = ''; }, 3000);
+};
+
+// --- EXTERNAL CONFIG LOADING ---
+const loadExternalConfig = async () => {
+    try {
+        // Try to load parties config
+        const partiesResponse = await fetch(CONFIG_URLS.parties);
+        if (partiesResponse.ok) {
+            GAME_CONFIG.parties = await partiesResponse.json();
+        } else {
+            console.warn('Could not load parties config, using default');
+            // Fallback to default config
+            GAME_CONFIG.parties = {
+                p1: { name: "Sairoon Current", logo: '🇮🇶', color: 'bg-red-700/80', description: "A cross-sectarian alliance.", photo: "https://picsum.photos/seed/p1/80/80", active: true, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
+                p2: { name: "Fatah Alliance", logo: '🛡️', color: 'bg-green-700/80', description: "Coalition of Iran-backed parties.", photo: "https://picsum.photos/seed/p2/80/80", active: false, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
+            };
+        }
+
+        // Try to load candidates config
+        const candidatesResponse = await fetch(CONFIG_URLS.candidates);
+        if (candidatesResponse.ok) {
+            GAME_CONFIG.candidates = await candidatesResponse.json();
+        } else {
+            console.warn('Could not load candidates config, using default');
+            // Fallback to default config
+            GAME_CONFIG.candidates = [
+                { id: 1, name: "Mustafa Al-Abadi", party: "p1", campaign: "Anti-Corruption", baseBonus: 1, bid: 1000, maxLevel: 10, logoColor: "border-red-500", policy: "Financial reform.", approval: 75, logo: '💰', specialAbility: "Critical Tap: 5% chance for 3x funds", abilityType: "critical", photo: "https://picsum.photos/seed/c1/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 5000, bio: "Former minister known for anti-corruption efforts.", profitPerHour: 50, active: true, sponsored: false },
+            ];
+        }
+
+        // Try to load managers config
+        const managersResponse = await fetch(CONFIG_URLS.managers);
+        if (managersResponse.ok) {
+            GAME_CONFIG.managers = await managersResponse.json();
+        } else {
+            console.warn('Could not load managers config, using default');
+            // Fallback to default config
+            GAME_CONFIG.managers = [
+                { id: 'm1', name: "Social Media Director", icon: '📱', description: "Boosts PPH of all cards by 20%", effect: 1.2, cost: 5000 },
+            ];
+        }
+    } catch (error) {
+        console.error('Error loading external config:', error);
+        // If all external loading fails, use minimal fallback
+        if (Object.keys(GAME_CONFIG.parties).length === 0) {
+            GAME_CONFIG.parties = {
+                p1: { name: "Default Party", logo: '🏛️', color: 'bg-blue-700/80', description: "Default party description.", photo: "https://picsum.photos/seed/default/80/80", active: true, promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000 }
+            };
+        }
+        if (GAME_CONFIG.candidates.length === 0) {
+            GAME_CONFIG.candidates = [
+                { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 1000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: '⭐', photo: "https://picsum.photos/seed/candidate/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000, bio: "Default candidate bio.", profitPerHour: 10, active: true, sponsored: false },
+            ];
+        }
+    }
+};
+
+// --- GITHUB DATA STORAGE ---
+const saveUserDataToGitHub = async () => {
+    if (!gameState || !telegramUser) return;
+    
+    try {
+        // Prepare user data for saving
+        const userData = {
+            telegramUsername: telegramUser.username || 'unknown',
+            telegramId: telegramUser.id || 'unknown',
+            telegramFirstName: telegramUser.first_name || '',
+            telegramLastName: telegramUser.last_name || '',
+            totalCampaignInfluence: gameState.totalCampaignInfluence,
+            coins: gameState.coins,
+            totalTaps: gameState.totalTaps,
+            totalLifetimeCoins: gameState.totalLifetimeCoins,
+            userCards: gameState.userCards,
+            achievements: gameState.achievements,
+            lastUpdated: new Date().toISOString()
+        };
+        
+        // In a real implementation, you would use GitHub API with authentication
+        // For now, we'll save to localStorage as a backup and log the data
+        const userKey = `user_${telegramUser.id}`;
+        localStorage.setItem(userKey, JSON.stringify(userData));
+        
+        // Also save to leaderboard
+        saveToLeaderboard();
+        
+        console.log('User data saved locally:', userData);
+        
+        // For GitHub integration, you would need to:
+        // 1. Get the current file content from GitHub
+        // 2. Update the user data in the file
+        // 3. Push the updated file back to GitHub
+        // This requires a backend service or GitHub Actions
+        
+    } catch (error) {
+        console.error('Error saving user data:', error);
+    }
+};
+
+const loadUserDataFromGitHub = async () => {
+    if (!telegramUser) return null;
+    
+    try {
+        // Try to load from localStorage first
+        const userKey = `user_${telegramUser.id}`;
+        const savedData = localStorage.getItem(userKey);
+        if (savedData) {
+            return JSON.parse(savedData);
+        }
+        
+        // In a real implementation, you would fetch from GitHub
+        return null;
+    } catch (error) {
+        console.error('Error loading user data:', error);
+        return null;
+    }
+};
+
+const saveToLeaderboard = () => {
+    try {
+        const leaderboardData = JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}');
+        const userKey = telegramUser ? `tg_${telegramUser.id}` : gameState.userId;
+        
+        leaderboardData[userKey] = {
+            username: telegramUser?.username || gameState.telegramUsername || 'Anonymous',
+            telegramId: telegramUser?.id || 'unknown',
+            score: gameState.totalCampaignInfluence,
+            coins: gameState.coins,
+            totalTaps: gameState.totalTaps,
+            lastUpdated: new Date().toISOString()
+        };
+        
+        localStorage.setItem('campaignLeaderboard', JSON.stringify(leaderboardData));
+    } catch (e) {
+        console.warn("Could not save to leaderboard.", e);
+    }
+};
+
+// --- CORE LOGIC ---
+const saveGameState = () => {
+    if(!gameState) return;
+    try {
+        gameState.lastPlayTime = Date.now();
+        localStorage.setItem('campaignSimulatorSave', JSON.stringify(gameState));
+        
+        // Also save user data to GitHub storage
+        saveUserDataToGitHub();
+    } catch (e) {
+        console.warn("Could not save game state to localStorage.", e);
+    }
+};
+
+const createDefaultGameState = () => ({
+    coins: 1000, influenceTokens: 0, dailyTaps: 0, totalTaps: 0,
+    totalLifetimeCoins: 1000, userCards: [],
+    parties: Object.keys(GAME_CONFIG.parties).reduce((acc, partyId) => {
+        acc[partyId] = { level: 1, xp: 0, multiplier: 1.05, totalInvestment: 0 };
+        return acc;
+    }, {}),
+    lastDailyRewardDate: null, 
+    userId: 'user_' + Math.random().toString(36).substr(2, 9),
+    watchedVideos: {}, managerCards: [], lastPlayTime: Date.now(),
+    achievements: [], energy: ENERGY_MAX, lastEnergyUpdate: Date.now(),
+    combo: 0, lastTapTime: 0, streak: 0,
+    lastLoginDate: null, activeBoosts: [], completedMissions: [],
+    missionProgress: DAILY_MISSIONS.reduce((acc, m) => { acc[m.id] = { progress: 0 }; return acc; }, {}),
+    telegramUsername: 'user_' + Math.random().toString(36).substr(2, 6),
+    appVersion: '1.0.0' // Add version tracking
+});
+
+const loadGameState = async () => {
+    let savedStateJSON = null;
+    try {
+        savedStateJSON = localStorage.getItem('campaignSimulatorSave');
+    } catch (e) {
+        console.warn("Could not access localStorage. Starting a fresh game.", e);
+        setTimeout(() => showMessage("Could not load saved data. Starting new game.", "info"), 500);
+    }
+
+    const defaultState = createDefaultGameState();
+    let initialState = defaultState;
+    if (savedStateJSON) {
+        try {
+            const parsed = JSON.parse(savedStateJSON);
+            // Ensure all properties are valid numbers, falling back to defaultState
+            const sanitizedParsed = {
+                ...parsed,
+                coins: typeof parsed.coins === 'number' ? parsed.coins : defaultState.coins,
+                influenceTokens: typeof parsed.influenceTokens === 'number' ? parsed.influenceTokens : defaultState.influenceTokens,
+                totalLifetimeCoins: typeof parsed.totalLifetimeCoins === 'number' ? parsed.totalLifetimeCoins : defaultState.totalLifetimeCoins,
+                lastPlayTime: typeof parsed.lastPlayTime === 'number' ? parsed.lastPlayTime : defaultState.lastPlayTime,
+            };
+            initialState = { ...defaultState, ...sanitizedParsed, parties: { ...defaultState.parties, ...parsed.parties } };
+            
+            // Migrate data if needed (for future updates)
+            if (!initialState.appVersion) {
+                initialState.appVersion = '1.0.0';
+                // Add migration logic here for future versions
+            }
+        } catch (e) {
+            console.error("Failed to parse saved state, starting fresh.", e);
+            initialState = defaultState;
+        }
+    }
+    
+    // Load user data from GitHub storage if available
+    const userData = await loadUserDataFromGitHub();
+    if (userData) {
+        // Merge with existing game state if needed
+        initialState.totalCampaignInfluence = Math.max(initialState.totalCampaignInfluence, userData.totalCampaignInfluence || 0);
+        initialState.telegramUsername = userData.telegramUsername || initialState.telegramUsername;
+    }
+    
+    const now = Date.now();
+    const timeOfflineHours = (now - initialState.lastPlayTime) / (1000 * 3600);
+    const pph = calculatePPH(initialState);
+    const offlineEarnings = Math.min(Math.floor(pph * timeOfflineHours), pph * 24); // Capped at 24 hours
+    if (offlineEarnings > 0) {
+        initialState.coins += offlineEarnings;
+        initialState.totalLifetimeCoins += offlineEarnings;
+        setTimeout(() => showMessage(`Welcome back! You earned ${formatNumber(offlineEarnings)} 💰 while offline.`, 'success'), 1000);
+    }
+    
+    const today = getTodayString();
+    if (initialState.lastLoginDate !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        initialState.streak = initialState.lastLoginDate === yesterday.toISOString().split('T')[0]
+            ? Math.min(initialState.streak + 1, STREAK_BONUS.length - 1)
+            : 1;
+        initialState.lastLoginDate = today;
+        initialState.dailyTaps = 0;
+        initialState.completedMissions = [];
+        initialState.missionProgress = DAILY_MISSIONS.reduce((acc, m) => { acc[m.id] = { progress: 0 }; return acc; }, {});
+    }
+
+    gameState = initialState;
+};
+
+// ... (rest of your existing functions remain the same - calculatePPH, calculateTCI, calculateTapPower, updateAll, checkAchievements, etc.)
+
+// --- TELEGRAM INTEGRATION ---
+const initTelegram = () => {
+    // Check if we're in Telegram Web App
+    if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        
+        // Expand the app to full height
+        tg.expand();
+        
+        // Get user data from Telegram
+        telegramUser = tg.initDataUnsafe?.user || null;
+        
+        if (telegramUser) {
+            console.log("Telegram user detected:", telegramUser);
+            // Store Telegram user info in game state
+            gameState.telegramUsername = telegramUser.username || `user_${telegramUser.id}`;
+            gameState.telegramId = telegramUser.id;
+            gameState.telegramFirstName = telegramUser.first_name;
+            gameState.telegramLastName = telegramUser.last_name;
+        }
+        
+        // Set theme colors if available
+        if (tg.themeParams) {
+            document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#0f172a');
+            document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#ffffff');
+            document.documentElement.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color || '#3b82f6');
+            document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color || '#ffffff');
+        }
+        
+        // Handle back button
+        tg.BackButton.onClick(() => {
+            if (activeTab !== 'tap') {
+                navigate('tap');
+            } else {
+                tg.close();
+            }
+        });
+        
+        // Show back button when not on main screen
+        if (activeTab !== 'tap') {
+            tg.BackButton.show();
+        }
+        
+    } else {
+        // Fallback for testing outside Telegram
+        console.log("Running outside Telegram, using test mode");
+        telegramUser = { 
+            id: Math.floor(Math.random() * 1000000), 
+            username: 'test_user_' + Math.random().toString(36).substr(2, 5),
+            first_name: 'Test',
+            last_name: 'User'
+        };
+        gameState.telegramUsername = telegramUser.username;
+        gameState.telegramId = telegramUser.id;
+    }
+};
+
+// --- INITIALIZATION ---
+const initGame = async () => {
+    // Load external configuration first
+    await loadExternalConfig();
+    
+    // Then load game state
+    await loadGameState();
+    
+    // Initialize Telegram integration
+    initTelegram();
+    
+    // Set up event listeners
+    document.body.addEventListener('click', (e) => {
+        handleAction(e);
+        const navButton = e.target.closest('[data-tab]');
+        if (navButton) navigate(navButton.dataset.tab);
+        if (e.target.id === 'tapButton') handleTap(e);
+    });
+    
+    document.body.addEventListener('touchstart', (e) => {
+        if (e.target.id === 'tapButton') handleTap(e);
+    }, { passive: false });
+
+    document.getElementById('adminToggle').addEventListener('click', () => {
+        renderModal('Admin Panel', renderAdminPanelContent());
+    });
+    
+    // Game loop for energy and boosts
+    setInterval(() => {
+        if (!gameState) return;
+        const now = Date.now();
+        const timePassed = (now - gameState.lastEnergyUpdate) / 1000;
+        gameState.energy = Math.min(ENERGY_MAX, gameState.energy + timePassed * ENERGY_REGEN_RATE);
+        gameState.lastEnergyUpdate = now;
+        
+        const activeBoosts = gameState.activeBoosts.filter(b => b.endTime > now);
+        if (activeBoosts.length !== gameState.activeBoosts.length) {
+            gameState.activeBoosts = activeBoosts;
+            updateAll();
+        } else {
+            renderHeader();
+        }
+    }, 1000);
+
+    // Auto-save every 30 seconds
+    setInterval(saveGameState, 30000);
+    
+    // Initialize UI
+    navigate('tap');
+    updateAll();
+    document.getElementById('loadingIndicator').style.display = 'none';
+};
+
+// Make sure to update your render functions to use GAME_CONFIG instead of hardcoded config
+
+// Initialize the game
+initGame();
+
+// ... (rest of your existing code for render functions, action handlers, etc.)
+
+});
+</script>
+</body>
+</html>
