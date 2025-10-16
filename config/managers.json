@@ -1,0 +1,10 @@
+[
+  {
+    "id": "m1",
+    "name": "Social Media Director",
+    "icon": "📱",
+    "description": "Boosts PPH of all cards by 20%",
+    "effect": 1.2,
+    "cost": 5000
+  }
+]
