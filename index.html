@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <title>Supreme Strategic Campaign Simulator (Iraq)</title>
+    <!-- For production, download Tailwind CSS and host it yourself -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -107,7 +108,7 @@ const DAILY_GOAL = 100;
 const DAILY_REWARD_COINS = 5000;
 const DAILY_REWARD_TOKENS = 1;
 
-// ⚠️ REPLACE THESE URLs WITH YOUR ACTUAL GITHUB URLs ⚠️
+// ✅ CORRECT GITHUB URLs - Using your specific commit hash
 const CONFIG_URLS = {
     parties: 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/3e01a329df8b190399b724d66cd45de4cb1bb12e/config/parties.json',
     candidates: 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/3e01a329df8b190399b724d66cd45de4cb1bb12e/config/candidates.json',
@@ -182,7 +183,7 @@ const loadExternalConfig = async () => {
         const partiesResponse = await fetch(CONFIG_URLS.parties);
         if (partiesResponse.ok) {
             GAME_CONFIG.parties = await partiesResponse.json();
-            console.log('✅ Parties config loaded:', GAME_CONFIG.parties);
+            console.log('✅ Parties config loaded:', Object.keys(GAME_CONFIG.parties).length, 'parties');
         } else {
             throw new Error(`Failed to load parties: ${partiesResponse.status}`);
         }
@@ -191,7 +192,7 @@ const loadExternalConfig = async () => {
         const candidatesResponse = await fetch(CONFIG_URLS.candidates);
         if (candidatesResponse.ok) {
             GAME_CONFIG.candidates = await candidatesResponse.json();
-            console.log('✅ Candidates config loaded:', GAME_CONFIG.candidates);
+            console.log('✅ Candidates config loaded:', GAME_CONFIG.candidates.length, 'candidates');
         } else {
             throw new Error(`Failed to load candidates: ${candidatesResponse.status}`);
         }
@@ -200,7 +201,7 @@ const loadExternalConfig = async () => {
         const managersResponse = await fetch(CONFIG_URLS.managers);
         if (managersResponse.ok) {
             GAME_CONFIG.managers = await managersResponse.json();
-            console.log('✅ Managers config loaded:', GAME_CONFIG.managers);
+            console.log('✅ Managers config loaded:', GAME_CONFIG.managers.length, 'managers');
         } else {
             throw new Error(`Failed to load managers: ${managersResponse.status}`);
         }
@@ -211,16 +212,17 @@ const loadExternalConfig = async () => {
         console.error('❌ Error loading external config:', error);
         showMessage('Using default configuration', 'info');
         
-        // Fallback to minimal default config
+        // Fallback to default config
         GAME_CONFIG = {
             parties: {
-                p1: { name: "Default Party", logo: '🏛️', color: 'bg-blue-700/80', description: "Default party.", photo: "https://picsum.photos/seed/default/80/80", active: true, promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000 }
+                p1: { name: "Sairoon Current", logo: '🇮🇶', color: 'bg-red-700/80', description: "A cross-sectarian alliance.", photo: "https://picsum.photos/seed/p1/80/80", active: true, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
+                p2: { name: "Fatah Alliance", logo: '🛡️', color: 'bg-green-700/80', description: "Coalition of Iran-backed parties.", photo: "https://picsum.photos/seed/p2/80/80", active: false, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
             },
             candidates: [
-                { id: 1, name: "Default Candidate", party: "p1", campaign: "Default", baseBonus: 1, bid: 1000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: '⭐', photo: "https://picsum.photos/seed/candidate/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000, bio: "Default bio.", profitPerHour: 10, active: true, sponsored: false }
+                { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 1000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: '⭐', photo: "https://picsum.photos/seed/candidate/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000, bio: "Default candidate bio.", profitPerHour: 10, active: true, sponsored: false },
             ],
             managers: [
-                { id: 'm1', name: "Default Manager", icon: '📱', description: "Default manager", effect: 1.2, cost: 5000 }
+                { id: 'm1', name: "Default Manager", icon: '📱', description: "Default manager description", effect: 1.2, cost: 5000 }
             ]
         };
     }
@@ -276,8 +278,6 @@ const saveGameState = () => {
     try {
         gameState.lastPlayTime = Date.now();
         localStorage.setItem('campaignSimulatorSave', JSON.stringify(gameState));
-        
-        // Also save to leaderboard data
         saveToLeaderboard();
     } catch (e) {
         console.warn("Could not save game state to localStorage.", e);
@@ -328,7 +328,6 @@ const loadGameState = () => {
         savedStateJSON = localStorage.getItem('campaignSimulatorSave');
     } catch (e) {
         console.warn("Could not access localStorage. Starting a fresh game.", e);
-        setTimeout(() => showMessage("Could not load saved data. Starting new game.", "info"), 500);
     }
 
     const defaultState = createDefaultGameState();
@@ -499,12 +498,16 @@ const renderCurrentTab = () => {
     const container = document.getElementById(activeTab);
     if (!container) return;
     const renderers = {
-        tap: renderTapScreen, cards: renderCardsScreen, missions: renderMissionsScreen,
-        media: renderMediaScreen, party: renderPartyScreen, store: renderStoreScreen,
+        tap: renderTapScreen, 
+        cards: renderCardsScreen, 
+        missions: renderMissionsScreen,
+        media: renderMediaScreen, 
+        party: renderPartyScreen, 
+        store: renderStoreScreen,
         leaderboard: renderLeaderboardScreen,
     };
     if (renderers[activeTab]) {
-      container.innerHTML = renderers[activeTab]();
+        container.innerHTML = renderers[activeTab]();
     }
 };
 
@@ -534,9 +537,12 @@ const renderHeader = () => {
 
 const renderNav = () => {
     const navItems = [
-        { tab: 'tap', icon: '👆', label: 'Tap' }, { tab: 'cards', icon: '🎴', label: 'Cards' },
-        { tab: 'missions', icon: '📋', label: 'Missions' }, { tab: 'media', icon: '📺', label: 'Media' },
-        { tab: 'party', icon: '🏛️', label: 'Party' }, { tab: 'store', icon: '💎', label: 'Store' },
+        { tab: 'tap', icon: '👆', label: 'Tap' }, 
+        { tab: 'cards', icon: '🎴', label: 'Cards' },
+        { tab: 'missions', icon: '📋', label: 'Missions' }, 
+        { tab: 'media', icon: '📺', label: 'Media' },
+        { tab: 'party', icon: '🏛️', label: 'Party' }, 
+        { tab: 'store', icon: '💎', label: 'Store' },
         { tab: 'leaderboard', icon: '🏆', label: 'Rank' },
     ];
     document.querySelector('nav').innerHTML = navItems.map(({ tab, icon, label }) => `
@@ -600,7 +606,166 @@ const renderCardsScreen = () => `
             </div>`;
     }).join('')}</div>`;
 
-// ... (other render functions remain similar but use GAME_CONFIG)
+const renderMissionsScreen = () => `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Daily Missions</h2>
+    <div class="space-y-3">${DAILY_MISSIONS.map(mission => {
+        const progress = gameState.missionProgress[mission.id]?.progress || 0;
+        const isCompleted = gameState.completedMissions.includes(mission.id);
+        const percent = isCompleted ? 100 : Math.min(100, (progress / mission.target) * 100);
+        return `
+            <div class="bg-slate-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="font-bold text-white">${mission.title}</h4>
+                    <span class="text-yellow-400 font-bold">+${formatNumber(mission.reward)} 💰</span>
+                </div>
+                <p class="text-sm text-gray-400 mb-3">${mission.description}</p>
+                <div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full" style="width: ${percent}%"></div></div>
+                <div class="text-right text-xs mt-1 text-gray-300">${isCompleted ? 'Completed' : `${formatNumber(progress)} / ${formatNumber(mission.target)}`}</div>
+            </div>`;
+    }).join('')}</div>`;
+
+const renderMediaScreen = () => {
+    const activeCandidates = GAME_CONFIG.candidates.filter(c => c.active);
+    const activeParties = Object.entries(GAME_CONFIG.parties).filter(([id, p]) => p.active);
+
+    const candidateMedia = activeCandidates.map(candidate => `
+        <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
+             <img src="${candidate.photo}" alt="${candidate.name}" class="w-24 h-24 rounded-lg object-cover" />
+             <div class="flex-1">
+                <h3 class="font-bold text-lg">${candidate.name}</h3>
+                <p class="text-sm text-gray-400 mb-2">${candidate.bio}</p>
+                <button data-action="watchVideo" data-type="candidate" data-id="${candidate.id}" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm disabled:bg-gray-500" ${gameState.watchedVideos['c' + candidate.id] ? 'disabled' : ''}>
+                    ${gameState.watchedVideos['c' + candidate.id] ? 'Watched' : `Watch Video (+${formatNumber(candidate.videoReward)}💰)`}
+                </button>
+             </div>
+        </div>
+    `).join('');
+
+    const partyMedia = activeParties.map(([id, party]) => `
+         <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
+             <img src="${party.photo}" alt="${party.name}" class="w-24 h-24 rounded-lg object-cover" />
+             <div class="flex-1">
+                <h3 class="font-bold text-lg">${party.name}</h3>
+                <p class="text-sm text-gray-400 mb-2">${party.description}</p>
+                <button data-action="watchVideo" data-type="party" data-id="${id}" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm disabled:bg-gray-500" ${gameState.watchedVideos['p' + id] ? 'disabled' : ''}>
+                    ${gameState.watchedVideos['p' + id] ? 'Watched' : `Watch Video (+${formatNumber(party.videoReward)}💰)`}
+                </button>
+             </div>
+        </div>
+    `).join('');
+
+    return `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Media</h2>
+    <div class="space-y-4">
+        <h3 class="font-bold text-lg text-blue-300">Candidates</h3>
+        ${candidateMedia || '<p class="text-gray-400 text-sm">No active candidate media.</p>'}
+        <h3 class="font-bold text-lg text-blue-300 mt-4">Parties</h3>
+        ${partyMedia || '<p class="text-gray-400 text-sm">No active party media.</p>'}
+    </div>`;
+};
+
+const renderPartyScreen = () => `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Political Parties</h2>
+    <div class="space-y-4">${Object.entries(GAME_CONFIG.parties).filter(([id, party]) => party.active).map(([id, party]) => {
+        const partyState = gameState.parties[id];
+        const xpPercent = (partyState.xp / (partyState.level * 500)) * 100;
+        const upgradeCost = partyState.level * 5;
+        return `
+            <div class="p-4 rounded-xl border border-slate-700 ${party.color}">
+                <div class="flex gap-4 items-center">
+                    <img src="${party.photo}" alt="${party.name}" class="w-16 h-16 rounded-full object-cover border-4 border-slate-400" />
+                    <div class="flex-1">
+                        <h3 class="font-bold text-lg">${party.name}</h3>
+                        <p class="text-sm text-gray-200">Level ${partyState.level}</p>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-200 my-3">${party.description}</p>
+                <div class="text-xs text-gray-200">XP: ${formatNumber(partyState.xp)} / ${formatNumber(partyState.level * 500)}</div>
+                <div class="w-full bg-gray-600 rounded-full h-2 mb-3"><div class="bg-green-500 h-2 rounded-full" style="width: ${xpPercent}%"></div></div>
+                <div class="flex gap-2">
+                    <button data-action="investParty" data-id="${id}" class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">Invest (1k💰)</button>
+                    <button data-action="upgradeParty" data-id="${id}" class="w-1/2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded disabled:bg-gray-500" ${gameState.influenceTokens < upgradeCost ? 'disabled' : ''}>Upgrade (${upgradeCost}💎)</button>
+                </div>
+            </div>`;
+    }).join('') || '<p class="text-center text-gray-400">No active parties available.</p>'}</div>`;
+
+const renderStoreScreen = () => `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Store</h2>
+    <div class="space-y-4">
+        <div>
+            <h3 class="font-bold text-lg text-blue-300 mb-2">Staff</h3>
+            ${GAME_CONFIG.managers.map(manager => `
+            <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2">
+                <div>
+                    <h4 class="font-bold text-white"><span class="text-2xl">${manager.icon}</span> ${manager.name}</h4>
+                    <p class="text-sm text-gray-400">${manager.description}</p>
+                </div>
+                <button data-action="buyManager" data-id="${manager.id}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.managerCards.includes(manager.id) || gameState.coins < manager.cost ? 'disabled' : ''}>
+                    ${gameState.managerCards.includes(manager.id) ? 'Hired' : `Hire (${formatNumber(manager.cost)}💰)`}
+                </button>
+            </div>`).join('')}
+        </div>
+        <div>
+            <h3 class="font-bold text-lg text-purple-400 mb-2">Boosts</h3>
+            ${BOOSTS.map(boost => `
+            <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2">
+                <div>
+                    <h4 class="font-bold text-white"><span class="text-2xl">${boost.icon}</span> ${boost.name}</h4>
+                    <p class="text-sm text-gray-400">${boost.duration > 0 ? `${boost.duration} seconds` : 'Instant effect'}</p>
+                </div>
+                <button data-action="activateBoost" data-id="${boost.id}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.coins < boost.cost ? 'disabled' : ''}>
+                    Activate (${formatNumber(boost.cost)}💰)
+                </button>
+            </div>`).join('')}
+        </div>
+    </div>`;
+
+const renderLeaderboardScreen = () => {
+    // Get leaderboard data from localStorage
+    let leaderboardData = {};
+    try {
+        leaderboardData = JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}');
+    } catch (e) {
+        console.warn("Could not load leaderboard data", e);
+    }
+    
+    // Convert to array and sort by score
+    const leaderboardArray = Object.values(leaderboardData).sort((a, b) => b.score - a.score);
+    
+    // Add current user if not in leaderboard
+    const currentUserInLeaderboard = leaderboardArray.find(u => u.username === (telegramUser?.username || gameState.telegramUsername));
+    if (!currentUserInLeaderboard) {
+        leaderboardArray.push({
+            username: telegramUser?.username || gameState.telegramUsername,
+            score: gameState.totalCampaignInfluence,
+            coins: gameState.coins,
+            totalTaps: gameState.totalTaps,
+            isCurrentUser: true
+        });
+    }
+    
+    // Take top 10
+    const topPlayers = leaderboardArray.slice(0, 10);
+    
+    return `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Leaderboard</h2>
+    <div class="space-y-2">${topPlayers.map((player, index) => `
+        <div class="flex items-center bg-slate-800 p-3 rounded-lg ${player.isCurrentUser ? 'border-2 border-blue-500' : ''}">
+            <div class="text-lg font-bold w-8 text-center text-gray-400">${index + 1}</div>
+            <div class="font-bold flex-1">${player.username}</div>
+            <div class="font-bold text-yellow-400">${formatNumber(player.score)} TCI</div>
+        </div>
+    `).join('')}</div>
+    <div class="mt-4 p-4 bg-slate-800 rounded-lg">
+        <h3 class="font-bold text-lg mb-2">Your Stats</h3>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+            <div class="bg-slate-700 p-2 rounded">Total Taps: ${formatNumber(gameState.totalTaps)}</div>
+            <div class="bg-slate-700 p-2 rounded">Lifetime Funds: ${formatNumber(gameState.totalLifetimeCoins)}</div>
+            <div class="bg-slate-700 p-2 rounded">Cards Owned: ${gameState.userCards.length}</div>
+            <div class="bg-slate-700 p-2 rounded">Achievements: ${gameState.achievements.length}/${ACHIEVEMENTS.length}</div>
+        </div>
+    </div>`;
+};
 
 const renderModal = (title, content, showClose = true) => {
     document.getElementById('modalContainer').innerHTML = `
@@ -634,7 +799,99 @@ const handleAction = (e) => {
                 updateAll();
             }
         },
-        // ... (other action handlers remain the same)
+        upgradeCard: () => {
+            const c = GAME_CONFIG.candidates.find(c => c.id == id);
+            const uc = gameState.userCards.find(uc => uc.id == id);
+            if (c && uc) {
+                const cost = c.bid * uc.level * 1.5;
+                if (gameState.coins >= cost) {
+                    gameState.coins -= cost;
+                    uc.level++;
+                    showMessage(`${c.name} upgraded to Lv.${uc.level}!`, 'success');
+                    checkMissionProgress('level', uc.level);
+                    updateAll();
+                }
+            }
+        },
+        toggleActivateCard: () => {
+            const uc = gameState.userCards.find(uc => uc.id == id);
+            if (uc) uc.activated = !uc.activated;
+            updateAll();
+        },
+        watchVideo: () => {
+            const item = type === 'candidate' 
+                ? GAME_CONFIG.candidates.find(c => c.id == id)
+                : GAME_CONFIG.parties[id];
+            const watchId = (type === 'candidate' ? 'c' : 'p') + id;
+            if (item && !gameState.watchedVideos[watchId]) {
+                const videoUrl = item.promoVideo.replace("watch?v=", "embed/");
+                const content = `
+                    <div class="aspect-w-16 aspect-h-9">
+                        <iframe src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-64 rounded"></iframe>
+                    </div>
+                    <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" class="w-full mt-4 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded">Claim Reward & Close</button>
+                `;
+                renderModal(`${item.name} - Campaign Video`, content, false);
+            }
+        },
+        claimVideoReward: () => {
+            const item = type === 'candidate' 
+                ? GAME_CONFIG.candidates.find(c => c.id == id)
+                : GAME_CONFIG.parties[id];
+            const watchId = (type === 'candidate' ? 'c' : 'p') + id;
+            if (item && !gameState.watchedVideos[watchId]) {
+                gameState.coins += item.videoReward;
+                gameState.watchedVideos[watchId] = true;
+                showMessage(`Watched video, +${formatNumber(item.videoReward)}💰!`, 'success');
+                closeModal();
+                updateAll();
+            }
+        },
+        investParty: () => {
+            const partyState = gameState.parties[id];
+            if (partyState && gameState.coins >= 1000) {
+                gameState.coins -= 1000;
+                partyState.xp += 100;
+                partyState.totalInvestment += 1000;
+                if(partyState.xp >= partyState.level * 500) {
+                    partyState.xp -= partyState.level * 500;
+                    partyState.level++;
+                    showMessage(`${GAME_CONFIG.parties[id].name} leveled up to Lv.${partyState.level}!`, 'success');
+                }
+                updateAll();
+            }
+        },
+        upgradeParty: () => {
+            const partyState = gameState.parties[id];
+            const cost = partyState.level * 5;
+            if(partyState && gameState.influenceTokens >= cost) {
+                gameState.influenceTokens -= cost;
+                partyState.level++;
+                showMessage(`${GAME_CONFIG.parties[id].name} upgraded to Lv.${partyState.level}!`, 'success');
+                updateAll();
+            }
+        },
+        buyManager: () => {
+            const m = GAME_CONFIG.managers.find(m => m.id === id);
+            if(m && gameState.coins >= m.cost) {
+                gameState.coins -= m.cost;
+                gameState.managerCards.push(id);
+                showMessage(`Hired ${m.name}!`, 'success');
+                updateAll();
+            }
+        },
+        activateBoost: () => {
+            const b = BOOSTS.find(b => b.id === id);
+            if(b && gameState.coins >= b.cost) {
+                gameState.coins -= b.cost;
+                if(b.energy) gameState.energy = Math.min(ENERGY_MAX, gameState.energy + b.energy);
+                if(b.duration > 0) {
+                    gameState.activeBoosts.push({ id, endTime: Date.now() + b.duration * 1000, multiplier: b.multiplier });
+                }
+                showMessage(`${b.name} activated!`, 'success');
+                updateAll();
+            }
+        }
     };
 
     actions[action]?.();
