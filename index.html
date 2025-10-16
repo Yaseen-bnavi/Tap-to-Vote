@@ -119,7 +119,13 @@ const CONFIG_URLS = {
 const ADMIN_CONTACT = {
     telegram: '@campaign_admin',
     email: 'admin@campaign.com',
-    instructions: 'Contact us to activate your candidate or party card for the campaign simulator.'
+    phone: '+964 XXX XXX XXXX',
+    instructions: 'Contact us to activate your candidate or party card. Payment required for activation services.',
+    pricing: {
+        candidate: '50,000 IQD per month',
+        party: '100,000 IQD per month',
+        sponsorship: '200,000 IQD per month'
+    }
 };
 
 const ACHIEVEMENTS = [
@@ -292,9 +298,14 @@ const saveToLeaderboard = () => {
         leaderboardData[userKey] = {
             username: telegramUser?.username || gameState.telegramUsername || 'Anonymous',
             telegramId: telegramUser?.id || 'unknown',
+            firstName: telegramUser?.first_name || '',
+            lastName: telegramUser?.last_name || '',
             score: gameState.totalCampaignInfluence,
             coins: gameState.coins,
             totalTaps: gameState.totalTaps,
+            totalLifetimeCoins: gameState.totalLifetimeCoins,
+            achievements: gameState.achievements.length,
+            cardsOwned: gameState.userCards.length,
             lastUpdated: new Date().toISOString()
         };
         
@@ -319,7 +330,10 @@ const createDefaultGameState = () => ({
     lastLoginDate: null, activeBoosts: [], completedMissions: [],
     missionProgress: DAILY_MISSIONS.reduce((acc, m) => { acc[m.id] = { progress: 0 }; return acc; }, {}),
     telegramUsername: 'user_' + Math.random().toString(36).substr(2, 6),
-    appVersion: '1.0.0'
+    telegramId: null,
+    telegramFirstName: null,
+    telegramLastName: null,
+    appVersion: '1.1.0'
 });
 
 const loadGameState = () => {
@@ -344,8 +358,13 @@ const loadGameState = () => {
             };
             initialState = { ...defaultState, ...sanitizedParsed, parties: { ...defaultState.parties, ...parsed.parties } };
             
-            if (!initialState.appVersion) {
-                initialState.appVersion = '1.0.0';
+            // Version migration
+            if (!initialState.appVersion || initialState.appVersion === '1.0.0') {
+                initialState.appVersion = '1.1.0';
+                // Add new fields for version 1.1.0
+                initialState.telegramId = initialState.telegramId || null;
+                initialState.telegramFirstName = initialState.telegramFirstName || null;
+                initialState.telegramLastName = initialState.telegramLastName || null;
             }
         } catch (e) {
             console.error("Failed to parse saved state, starting fresh.", e);
@@ -781,7 +800,148 @@ const closeModal = () => {
     document.getElementById('modalContainer').innerHTML = '';
 };
 
-// --- ACTION HANDLERS ---
+// --- ENHANCED ADMIN PANEL ---
+const renderAdminPanelContent = () => {
+    const candidateListHtml = GAME_CONFIG.candidates.map(candidate => `
+        <div class="flex items-center justify-between p-3 bg-slate-900 rounded-lg mb-2">
+            <div class="flex-1">
+                <div class="flex items-center">
+                    <img src="${candidate.photo}" alt="${candidate.name}" class="w-10 h-10 rounded-full mr-3 object-cover">
+                    <div>
+                        <span class="font-bold ${candidate.active ? 'text-green-400' : 'text-red-400'}">${candidate.name}</span>
+                        <div class="text-xs text-gray-400">
+                            ${candidate.active ? '🟢 Active' : '🔴 Inactive'} 
+                            ${candidate.sponsored ? ' | ⭐ Sponsored' : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button data-action="adminToggleActive" data-type="candidate" data-id="${candidate.id}" class="text-xs py-2 px-3 rounded font-bold ${candidate.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white">
+                    ${candidate.active ? 'Deactivate' : 'Activate'}
+                </button>
+                <button data-action="adminToggleSponsor" data-id="${candidate.id}" class="text-xs py-2 px-3 rounded font-bold ${candidate.sponsored ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-600 hover:bg-gray-700'} text-white">
+                    ${candidate.sponsored ? 'Unsponsor' : 'Sponsor'}
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    const partyListHtml = Object.entries(GAME_CONFIG.parties).map(([id, party]) => `
+         <div class="flex items-center justify-between p-3 bg-slate-900 rounded-lg mb-2">
+            <div class="flex-1">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-3">${party.logo}</span>
+                    <div>
+                        <span class="font-bold ${party.active ? 'text-green-400' : 'text-red-400'}">${party.name}</span>
+                        <div class="text-xs text-gray-400">${party.active ? '🟢 Active' : '🔴 Inactive'}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button data-action="adminToggleActive" data-type="party" data-id="${id}" class="text-xs py-2 px-3 rounded font-bold ${party.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white">
+                    ${party.active ? 'Deactivate' : 'Activate'}
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    const userInfoHtml = telegramUser ? `
+        <div class="bg-green-900/30 p-4 rounded-lg mb-4">
+            <h3 class="font-bold text-green-300 mb-2">👤 Telegram User Info</h3>
+            <div class="space-y-1 text-sm">
+                <div><span class="text-gray-400">Username:</span> @${telegramUser.username || 'N/A'}</div>
+                <div><span class="text-gray-400">Name:</span> ${telegramUser.first_name || ''} ${telegramUser.last_name || ''}</div>
+                <div><span class="text-gray-400">ID:</span> ${telegramUser.id}</div>
+                <div><span class="text-gray-400">Language:</span> ${telegramUser.language_code || 'N/A'}</div>
+            </div>
+        </div>
+    ` : '';
+
+    return `
+        <div class="text-left max-h-[70vh] overflow-y-auto pr-2">
+            <!-- User Information -->
+            ${userInfoHtml}
+            
+            <!-- Contact Information -->
+            <div class="bg-blue-900/30 p-4 rounded-lg mb-4">
+                <h3 class="font-bold text-blue-300 mb-2">📞 Contact & Pricing</h3>
+                <div class="space-y-2 text-sm">
+                    <div><span class="text-gray-400">Telegram:</span> ${ADMIN_CONTACT.telegram}</div>
+                    <div><span class="text-gray-400">Email:</span> ${ADMIN_CONTACT.email}</div>
+                    <div><span class="text-gray-400">Phone:</span> ${ADMIN_CONTACT.phone}</div>
+                    <div class="mt-2 p-2 bg-yellow-900/30 rounded">
+                        <p class="text-yellow-300 font-bold mb-1">💰 Activation Pricing:</p>
+                        <p class="text-xs">Candidate: ${ADMIN_CONTACT.pricing.candidate}</p>
+                        <p class="text-xs">Party: ${ADMIN_CONTACT.pricing.party}</p>
+                        <p class="text-xs">Sponsorship: ${ADMIN_CONTACT.pricing.sponsorship}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Section -->
+            <div class="bg-purple-900/30 p-4 rounded-lg mb-4">
+                <h3 class="font-bold text-purple-300 mb-2">ℹ️ About</h3>
+                <p class="text-sm text-gray-300 mb-2">Supreme Strategic Campaign Simulator - Iraq</p>
+                <p class="text-xs text-gray-400">Version: ${gameState.appVersion}</p>
+                <p class="text-xs text-gray-400 mt-2">${ADMIN_CONTACT.instructions}</p>
+            </div>
+            
+            <!-- Candidate Management -->
+            <div class="mb-4">
+                <h4 class="font-bold text-blue-400 mb-2 flex items-center">
+                    <i class="fa fa-users mr-2"></i> Candidate Management (${GAME_CONFIG.candidates.length})
+                </h4>
+                <div id="candidateActivationList" class="space-y-2">${candidateListHtml}</div>
+            </div>
+            
+            <hr class="my-4 border-slate-600">
+            
+            <!-- Party Management -->
+            <div class="mb-4">
+                <h4 class="font-bold text-green-400 mb-2 flex items-center">
+                    <i class="fa fa-flag mr-2"></i> Party Management (${Object.keys(GAME_CONFIG.parties).length})
+                </h4>
+                <div id="partyActivationList" class="space-y-2">${partyListHtml}</div>
+            </div>
+            
+            <hr class="my-4 border-slate-600">
+            
+            <!-- Admin Actions -->
+            <div class="mb-4">
+                <h4 class="font-bold text-yellow-400 mb-2">⚙️ Admin Actions</h4>
+                <div class="grid grid-cols-2 gap-2">
+                    <button data-action="adminAddCoins" class="bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-bold">
+                        Add 10K Coins
+                    </button>
+                    <button data-action="adminResetGame" class="bg-red-600 hover:bg-red-700 text-white py-2 rounded text-sm font-bold">
+                        Reset Game
+                    </button>
+                    <button data-action="adminExportData" class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded text-sm font-bold col-span-2">
+                        Export Game Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Game Statistics -->
+            <div class="bg-slate-900 p-3 rounded-lg">
+                <h4 class="font-bold text-gray-300 mb-2">📊 Game Stats</h4>
+                <div class="grid grid-cols-2 gap-1 text-xs">
+                    <div class="text-gray-400">Total Players:</div>
+                    <div class="text-right">${Object.keys(JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}')).length}</div>
+                    <div class="text-gray-400">Your TCI:</div>
+                    <div class="text-right">${formatNumber(gameState.totalCampaignInfluence)}</div>
+                    <div class="text-gray-400">Your Coins:</div>
+                    <div class="text-right">${formatNumber(gameState.coins)}</div>
+                    <div class="text-gray-400">Active Cards:</div>
+                    <div class="text-right">${gameState.userCards.filter(c => c.activated).length}</div>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
+// --- ENHANCED ACTION HANDLERS ---
 const handleAction = (e) => {
     const target = e.target.closest('[data-action]');
     if (!target) return;
@@ -891,13 +1051,70 @@ const handleAction = (e) => {
                 showMessage(`${b.name} activated!`, 'success');
                 updateAll();
             }
+        },
+        // Enhanced Admin Actions
+        adminToggleActive: () => {
+            const collection = type === 'candidate' ? GAME_CONFIG.candidates : GAME_CONFIG.parties;
+            const item = type === 'candidate' ? collection.find(c => c.id == id) : collection[id];
+            if (item) {
+                item.active = !item.active;
+                const action = item.active ? 'activated' : 'deactivated';
+                showMessage(`${item.name} ${action} successfully!`, 'success');
+                renderModal('Admin Panel', renderAdminPanelContent());
+                updateAll();
+            }
+        },
+        adminToggleSponsor: () => {
+            const c = GAME_CONFIG.candidates.find(c => c.id == id);
+            if (c) {
+                c.sponsored = !c.sponsored;
+                const action = c.sponsored ? 'sponsored' : 'unsponsored';
+                showMessage(`${c.name} ${action} successfully!`, 'success');
+                renderModal('Admin Panel', renderAdminPanelContent());
+                updateAll();
+            }
+        },
+        adminAddCoins: () => {
+            gameState.coins += 10000;
+            showMessage('Added 10,000 coins!', 'success');
+            renderModal('Admin Panel', renderAdminPanelContent());
+            updateAll();
+        },
+        adminResetGame: () => {
+            if (confirm("Are you sure you want to reset the game? All progress will be lost!")) {
+                gameState = createDefaultGameState();
+                showMessage("Game reset successfully", 'success');
+                renderModal('Admin Panel', renderAdminPanelContent());
+                updateAll();
+            }
+        },
+        adminExportData: () => {
+            try {
+                const dataStr = JSON.stringify({
+                    gameState: gameState,
+                    config: GAME_CONFIG,
+                    leaderboard: JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}'),
+                    exportDate: new Date().toISOString()
+                }, null, 2);
+                const blob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `campaign-data-${getTodayString()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showMessage('Game data exported successfully!', 'success');
+            } catch (e) {
+                showMessage('Failed to export data.', 'error');
+                console.error(e);
+            }
         }
     };
 
     actions[action]?.();
 };
 
-// --- TELEGRAM INTEGRATION ---
+// --- ENHANCED TELEGRAM INTEGRATION ---
 const initTelegram = () => {
     if (window.Telegram && window.Telegram.WebApp) {
         const tg = window.Telegram.WebApp;
@@ -905,16 +1122,37 @@ const initTelegram = () => {
         telegramUser = tg.initDataUnsafe?.user || null;
         
         if (telegramUser) {
+            console.log("Telegram user detected:", telegramUser);
+            // Store comprehensive Telegram user info
             gameState.telegramUsername = telegramUser.username || `user_${telegramUser.id}`;
             gameState.telegramId = telegramUser.id;
+            gameState.telegramFirstName = telegramUser.first_name || '';
+            gameState.telegramLastName = telegramUser.last_name || '';
+            
+            // Save immediately to ensure user data is stored
+            saveGameState();
         }
+        
+        // Set theme colors if available
+        if (tg.themeParams) {
+            document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#0f172a');
+            document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#ffffff');
+        }
+        
     } else {
+        // Fallback for testing outside Telegram
+        console.log("Running outside Telegram, using test mode");
         telegramUser = { 
             id: Math.floor(Math.random() * 1000000), 
-            username: 'test_user_' + Math.random().toString(36).substr(2, 5)
+            username: 'test_user_' + Math.random().toString(36).substr(2, 5),
+            first_name: 'Test',
+            last_name: 'User',
+            language_code: 'en'
         };
         gameState.telegramUsername = telegramUser.username;
         gameState.telegramId = telegramUser.id;
+        gameState.telegramFirstName = telegramUser.first_name;
+        gameState.telegramLastName = telegramUser.last_name;
     }
 };
 
@@ -944,6 +1182,9 @@ const initGame = async () => {
         }
     }, 1000);
 
+    // Auto-save every 30 seconds
+    setInterval(saveGameState, 30000);
+
     document.body.addEventListener('click', (e) => {
         handleAction(e);
         const navButton = e.target.closest('[data-tab]');
@@ -956,7 +1197,7 @@ const initGame = async () => {
     }, { passive: false });
 
     document.getElementById('adminToggle').addEventListener('click', () => {
-        renderModal('Admin Panel', 'Admin features will be available in the next update.');
+        renderModal('Admin Panel', renderAdminPanelContent());
     });
     
     navigate('tap');
