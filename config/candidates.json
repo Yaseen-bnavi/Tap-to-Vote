@@ -1,7 +1,7 @@
 [
   {
     "id": 1,
-    "name": "Halat Salaman",
+    "name": "Halat Salaman Berwari",
     "party": "p1",
     "campaign": "Anti-Corruption",
     "baseBonus": 1,
@@ -17,7 +17,7 @@
     "promoVideo": "https://www.youtube.com/embed/dQw4w9WgXcQ",
     "videoReward": 5000,
     "bio": "Former minister known for anti-corruption efforts.",
-    "profitPerHour": 50,
+    "profitPerHour": 100,
     "active": true,
     "sponsored": false
   }
