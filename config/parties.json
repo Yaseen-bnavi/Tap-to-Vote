@@ -1,0 +1,22 @@
+{
+  "p1": {
+    "name": "Sairoon Current",
+    "logo": "🇮🇶",
+    "color": "bg-red-700/80",
+    "description": "A cross-sectarian alliance.",
+    "photo": "https://picsum.photos/seed/p1/80/80",
+    "active": true,
+    "promoVideo": "https://www.youtube.com/embed/P_wKDMcr16g",
+    "videoReward": 3000
+  },
+  "p2": {
+    "name": "Fatah Alliance",
+    "logo": "🛡️",
+    "color": "bg-green-700/80",
+    "description": "Coalition of Iran-backed parties.",
+    "photo": "https://picsum.photos/seed/p2/80/80",
+    "active": false,
+    "promoVideo": "https://www.youtube.com/embed/P_wKDMcr16g",
+    "videoReward": 3000
+  }
+}
