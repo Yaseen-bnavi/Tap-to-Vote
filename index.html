@@ -107,35 +107,51 @@ const CONFIG_URLS = {
 };
 
 // ==========================================
-// 🎮 GAME CONSTANTS
+// 🎮 GAME CONSTANTS - HARDER ECONOMY
 // ==========================================
-const TCI_SCALING = { COINS: 10000, CARD_LEVEL: 10, PARTY_LEVEL: 50 };
-const ENERGY_MAX = 100;
-const ENERGY_REGEN_RATE = 1;
-const COMBO_TIMEOUT = 2000;
-const STREAK_BONUS = [0, 5, 10, 15, 20, 25, 30, 40, 50, 75];
-const DAILY_GOAL = 100;
-const DAILY_REWARD_COINS = 5000;
+const TCI_SCALING = { COINS: 50000, CARD_LEVEL: 25, PARTY_LEVEL: 100 }; // Increased requirements
+const ENERGY_MAX = 80; // Reduced energy
+const ENERGY_REGEN_RATE = 0.8; // Slower regeneration
+const COMBO_TIMEOUT = 1500; // Shorter combo window
+const STREAK_BONUS = [0, 2, 5, 8, 12, 17, 23, 30, 38, 50]; // Reduced bonuses
+const DAILY_GOAL = 150; // Higher daily goal
+const DAILY_REWARD_COINS = 2000; // Reduced rewards
 const DAILY_REWARD_TOKENS = 1;
 
+// Inflation mechanics - costs increase as player progresses
+const getInflationMultiplier = (totalLifetimeCoins) => {
+    const milestones = [10000, 50000, 200000, 1000000, 5000000];
+    let multiplier = 1;
+    milestones.forEach(milestone => {
+        if (totalLifetimeCoins > milestone) {
+            multiplier += 0.5; // 50% cost increase per milestone
+        }
+    });
+    return Math.min(multiplier, 4); // Cap at 4x costs
+};
+
 const ACHIEVEMENTS = [
-    { id: 'taps1', type: 'taps', threshold: 100, title: "First Steps", description: "Reach 100 total taps" },
-    { id: 'taps2', type: 'taps', threshold: 500, title: "Getting Serious", description: "Reach 500 total taps" },
-    { id: 'taps3', type: 'taps', threshold: 1000, title: "Dedicated Campaigner", description: "Reach 1,000 total taps" },
-    { id: 'coins1', type: 'coins', threshold: 10000, title: "Wealthy Backer", description: "Accumulate 10,000 coins" },
-    { id: 'cards1', type: 'cards', threshold: 3, title: "Building a Team", description: "Own 3 candidate cards" },
+    { id: 'taps1', type: 'taps', threshold: 500, title: "First Steps", description: "Reach 500 total taps", reward: 1000 },
+    { id: 'taps2', type: 'taps', threshold: 2500, title: "Getting Serious", description: "Reach 2,500 total taps", reward: 5000 },
+    { id: 'taps3', type: 'taps', threshold: 10000, title: "Dedicated Campaigner", description: "Reach 10,000 total taps", reward: 20000 },
+    { id: 'coins1', type: 'coins', threshold: 50000, title: "Wealthy Backer", description: "Accumulate 50,000 coins", reward: 10000 },
+    { id: 'coins2', type: 'coins', threshold: 250000, title: "Financial Mogul", description: "Accumulate 250,000 coins", reward: 50000 },
+    { id: 'cards1', type: 'cards', threshold: 3, title: "Building a Team", description: "Own 3 candidate cards", reward: 5000 },
+    { id: 'cards2', type: 'cards', threshold: 7, title: "Political Machine", description: "Own 7 candidate cards", reward: 25000 },
 ];
 
 const DAILY_MISSIONS = [
-    { id: 1, type: 'taps', target: 50, reward: 1000, title: "Tap 50 Times", description: "Basic tapping mission" },
-    { id: 2, type: 'taps', target: 200, reward: 5000, title: "Tap 200 Times", description: "Advanced tapping mission" },
-    { id: 3, type: 'coins', target: 10000, reward: 2000, title: "Earn 10,000 Funds", description: "Wealth accumulation" },
-    { id: 4, type: 'level', target: 3, reward: 3000, title: "Upgrade a Card to Lv.3", description: "Strengthen your team" },
+    { id: 1, type: 'taps', target: 100, reward: 500, title: "Tap 100 Times", description: "Basic tapping mission" },
+    { id: 2, type: 'taps', target: 500, reward: 2000, title: "Tap 500 Times", description: "Advanced tapping mission" },
+    { id: 3, type: 'coins', target: 25000, reward: 1000, title: "Earn 25,000 Funds", description: "Wealth accumulation" },
+    { id: 4, type: 'level', target: 5, reward: 1500, title: "Upgrade a Card to Lv.5", description: "Strengthen your team" },
+    { id: 5, type: 'cards', target: 2, reward: 1000, title: "Acquire 2 Candidates", description: "Expand your influence" },
 ];
 
 const BOOSTS = [
-    { id: 'boost_2x', name: "2x Multiplier", duration: 60, cost: 5000, multiplier: 2, icon: '⚡' },
-    { id: 'boost_energy', name: "Energy Refill", duration: 0, cost: 3000, energy: 50, icon: '🔋' },
+    { id: 'boost_2x', name: "2x Multiplier", duration: 30, cost: 10000, multiplier: 2, icon: '⚡' }, // Shorter duration, higher cost
+    { id: 'boost_energy', name: "Energy Refill", duration: 0, cost: 5000, energy: 40, icon: '🔋' }, // Higher cost, less energy
+    { id: 'boost_combo', name: "Combo Extender", duration: 45, cost: 8000, comboTime: 3000, icon: '🎯' }, // New: extends combo time
 ];
 
 // ==========================================
@@ -207,7 +223,7 @@ const loadExternalConfig = async () => {
                     photo: "party1.png", 
                     active: true, 
                     promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", 
-                    videoReward: 3000 
+                    videoReward: 1500 
                 }
             },
             candidates: [
@@ -217,7 +233,7 @@ const loadExternalConfig = async () => {
                     party: "p1", 
                     campaign: "Default Campaign", 
                     baseBonus: 1, 
-                    bid: 1000, 
+                    bid: 2000, 
                     maxLevel: 5, 
                     logoColor: "border-blue-500", 
                     policy: "Default policy.", 
@@ -225,9 +241,9 @@ const loadExternalConfig = async () => {
                     logo: "⭐", 
                     photo: "candidate1.jpg", 
                     promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", 
-                    videoReward: 1000, 
+                    videoReward: 500, 
                     bio: "Default candidate bio.", 
-                    profitPerHour: 10, 
+                    profitPerHour: 5, 
                     active: true, 
                     sponsored: false 
                 }
@@ -238,8 +254,8 @@ const loadExternalConfig = async () => {
                     name: "Default Manager", 
                     icon: '📱', 
                     description: "Default manager description", 
-                    effect: 1.2, 
-                    cost: 5000 
+                    effect: 1.1, 
+                    cost: 10000 
                 }
             ]
         };
@@ -247,22 +263,27 @@ const loadExternalConfig = async () => {
 };
 
 // ==========================================
-// 🎯 CORE GAME LOGIC
+// 🎯 CORE GAME LOGIC - HARDER ECONOMY
 // ==========================================
 const calculatePPH = (state) => {
     let totalPPH = 0;
     if (!state || !state.userCards) return 0;
+    
+    const inflation = getInflationMultiplier(state.totalLifetimeCoins);
+    
     state.userCards.forEach(card => {
-        if (card.activated) {
-            const candidate = GAME_CONFIG.candidates.find(c => c.id === card.id);
-            if (candidate) {
-                let profit = candidate.profitPerHour * card.level;
-                state.managerCards.forEach(managerId => {
-                    const manager = GAME_CONFIG.managers.find(m => m.id === managerId);
-                    if (manager) profit *= manager.effect;
-                });
-                totalPPH += profit;
-            }
+        const candidate = GAME_CONFIG.candidates.find(c => c.id === card.id);
+        if (candidate) {
+            // Reduced base PPH with inflation penalty
+            let profit = (candidate.profitPerHour * card.level) / inflation;
+            
+            // Manager effects are less powerful
+            state.managerCards.forEach(managerId => {
+                const manager = GAME_CONFIG.managers.find(m => m.id === managerId);
+                if (manager) profit *= (1 + (manager.effect - 1) * 0.7); // 30% less effective
+            });
+            
+            totalPPH += profit;
         }
     });
     return Math.floor(totalPPH);
@@ -270,27 +291,34 @@ const calculatePPH = (state) => {
 
 const calculateTCI = (state) => {
     if (!state) return 0;
-    const coinsTCI = (state.totalLifetimeCoins || 0) / TCI_SCALING.COINS;
-    const cardsTCI = (state.userCards?.reduce((acc, card) => acc + (card.level || 1), 0) || 0) * TCI_SCALING.CARD_LEVEL;
-    const partiesTCI = (Object.values(state.parties)?.reduce((acc, party) => acc + (party.level || 1), 0) || 0) * TCI_SCALING.PARTY_LEVEL;
+    
+    // Much harder TCI calculation
+    const coinsTCI = Math.pow(state.totalLifetimeCoins || 0, 0.7) / TCI_SCALING.COINS;
+    const cardsTCI = Math.pow(state.userCards?.reduce((acc, card) => acc + (card.level || 1), 0) || 0, 1.2) * TCI_SCALING.CARD_LEVEL;
+    const partiesTCI = Math.pow(Object.values(state.parties)?.reduce((acc, party) => acc + (party.level || 1), 0) || 0, 1.1) * TCI_SCALING.PARTY_LEVEL;
+    
     return Math.floor(coinsTCI + cardsTCI + partiesTCI);
 };
 
 const calculateTapPower = (state) => {
     if (!state) return 1;
+    
+    const inflation = getInflationMultiplier(state.totalLifetimeCoins);
+    
     let basePower = 1 + (state.userCards?.reduce((acc, card) => {
-        if(card.activated) {
-            const c = GAME_CONFIG.candidates.find(c => c.id === card.id);
-            return acc + (c ? c.baseBonus * (card.level || 1) : 0);
-        }
-        return acc;
+        const c = GAME_CONFIG.candidates.find(c => c.id === card.id);
+        return acc + (c ? c.baseBonus * Math.sqrt(card.level || 1) : 0); // Square root scaling
     }, 0) || 0);
     
-    let partyMultiplier = 1 + (Object.values(state.parties)?.reduce((acc, p) => acc + (p.level > 1 ? ((GAME_CONFIG.parties[p.id]?.multiplier || 1.05) - 1) * p.level : 0), 0) || 0);
+    // Reduced party multiplier effect
+    let partyMultiplier = 1 + (Object.values(state.parties)?.reduce((acc, p) => 
+        acc + (p.level > 1 ? ((GAME_CONFIG.parties[p.id]?.multiplier || 1.03) - 1) * Math.log(p.level + 1) : 0), 0) || 0);
+    
     const boostMultiplier = state.activeBoosts?.reduce((acc, b) => acc * (b.multiplier || 1), 1) || 1;
     const streakBonus = 1 + (STREAK_BONUS[state.streak || 0] / 100);
 
-    return Math.floor(basePower * partyMultiplier * boostMultiplier * streakBonus);
+    // Apply inflation penalty to tap power
+    return Math.floor((basePower * partyMultiplier * boostMultiplier * streakBonus) / Math.sqrt(inflation));
 };
 
 const saveGameState = () => {
@@ -330,14 +358,14 @@ const saveToLeaderboard = () => {
 };
 
 const createDefaultGameState = () => ({
-    coins: 1000, 
+    coins: 500, // Starting with less coins
     influenceTokens: 0, 
     dailyTaps: 0, 
     totalTaps: 0,
-    totalLifetimeCoins: 1000, 
+    totalLifetimeCoins: 500, 
     userCards: [],
     parties: Object.keys(GAME_CONFIG.parties).reduce((acc, partyId) => {
-        acc[partyId] = { level: 1, xp: 0, multiplier: 1.05, totalInvestment: 0 };
+        acc[partyId] = { level: 1, xp: 0, multiplier: 1.03, totalInvestment: 0 }; // Lower multiplier
         return acc;
     }, {}),
     lastDailyRewardDate: null, 
@@ -359,7 +387,7 @@ const createDefaultGameState = () => ({
     telegramId: null,
     telegramFirstName: null,
     telegramLastName: null,
-    appVersion: '2.0.0'
+    appVersion: '2.1.0'
 });
 
 const loadGameState = () => {
@@ -387,11 +415,11 @@ const loadGameState = () => {
         }
     }
     
-    // Calculate offline earnings
+    // Calculate offline earnings (capped lower)
     const now = Date.now();
     const timeOfflineHours = (now - initialState.lastPlayTime) / (1000 * 3600);
     const pph = calculatePPH(initialState);
-    const offlineEarnings = Math.min(Math.floor(pph * timeOfflineHours), pph * 24);
+    const offlineEarnings = Math.min(Math.floor(pph * timeOfflineHours), pph * 8); // Max 8 hours offline
     if (offlineEarnings > 0) {
         initialState.coins += offlineEarnings;
         initialState.totalLifetimeCoins += offlineEarnings;
@@ -434,12 +462,18 @@ const checkAchievements = () => {
         if (ach.type === 'cards' && gameState.userCards.length >= ach.threshold) conditionMet = true;
         if (conditionMet) {
             gameState.achievements.push(ach.id);
+            gameState.coins += ach.reward;
+            gameState.totalLifetimeCoins += ach.reward;
             unlocked.push(ach);
         }
     });
     if (unlocked.length > 0) {
         const achievement = unlocked[0];
-        const content = `<div class="text-center"><div class="text-6xl mb-2">🏆</div><p class="text-gray-300">${achievement.description}</p></div>`;
+        const content = `<div class="text-center">
+            <div class="text-6xl mb-2">🏆</div>
+            <p class="text-gray-300 mb-2">${achievement.description}</p>
+            <p class="text-yellow-400 font-bold">Reward: +${formatNumber(achievement.reward)}💰</p>
+        </div>`;
         renderModal(`Achievement: ${achievement.title}`, content);
         saveGameState();
     }
@@ -459,12 +493,16 @@ const handleTap = (e) => {
     gameState.energy -= 1;
     let tapValue = calculateTapPower(gameState);
     
-    // Critical hit chance
-    const isCritical = Math.random() < 0.05;
-    if (isCritical) tapValue *= 3;
+    // Critical hit chance (lower probability)
+    const isCritical = Math.random() < 0.03; // 3% chance
+    if (isCritical) tapValue *= 2.5; // Lower critical multiplier
     
-    gameState.combo = (now - gameState.lastTapTime < COMBO_TIMEOUT) ? gameState.combo + 1 : 1;
-    let comboMultiplier = 1 + Math.min(gameState.combo * 0.05, 1);
+    // Combo system with shorter window
+    const currentComboTimeout = gameState.activeBoosts.find(b => b.comboTime) ? 
+        COMBO_TIMEOUT + 1500 : COMBO_TIMEOUT;
+    
+    gameState.combo = (now - gameState.lastTapTime < currentComboTimeout) ? gameState.combo + 1 : 1;
+    let comboMultiplier = 1 + Math.min(gameState.combo * 0.03, 0.5); // Reduced combo bonus
     tapValue = Math.floor(tapValue * comboMultiplier);
 
     const { clientX, clientY } = e.touches ? e.touches[0] : e;
@@ -559,6 +597,8 @@ const renderCurrentTab = () => {
 const renderHeader = () => {
     const pph = calculatePPH(gameState);
     const energyPercentage = (gameState.energy / ENERGY_MAX) * 100;
+    const inflation = getInflationMultiplier(gameState.totalLifetimeCoins);
+    
     document.getElementById('header').innerHTML = `
         <div class="flex justify-around text-center">
             <div><p class="text-2xl font-extrabold text-yellow-400">${formatNumber(gameState.coins)}</p><p class="text-xs text-gray-400">Funds 💰</p></div>
@@ -569,12 +609,18 @@ const renderHeader = () => {
             <div class="flex justify-between items-center text-sm mb-2 px-1">
                 <div class="text-center"><p class="text-blue-400 font-bold">+${formatNumber(calculateTapPower(gameState))}</p><p class="text-gray-400 text-xs">Tap Power</p></div>
                 <div class="text-center"><p class="text-green-400 font-bold">${formatNumber(pph)}/hr</p><p class="text-gray-400 text-xs">PPH</p></div>
-                <div class="text-center"><p class="text-purple-400 font-bold">${gameState.userCards.filter(c=>c.activated).length}</p><p class="text-gray-400 text-xs">Active</p></div>
+                <div class="text-center"><p class="text-purple-400 font-bold">${gameState.userCards.length}</p><p class="text-gray-400 text-xs">Cards</p></div>
             </div>
             <div>
-                <div class="flex justify-between text-xs mb-1 px-1"><span class="text-yellow-400 font-bold">⚡ Energy</span><span class="text-gray-300">${Math.floor(gameState.energy)}/${ENERGY_MAX}</span></div>
-                <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden"><div class="h-full bg-yellow-400 transition-all duration-300" style="width: ${energyPercentage}%"></div></div>
+                <div class="flex justify-between text-xs mb-1 px-1">
+                    <span class="text-yellow-400 font-bold">⚡ Energy</span>
+                    <span class="text-gray-300">${Math.floor(gameState.energy)}/${ENERGY_MAX}</span>
+                </div>
+                <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-yellow-400 transition-all duration-300" style="width: ${energyPercentage}%"></div>
+                </div>
             </div>
+            ${inflation > 1 ? `<div class="text-xs text-red-400 mt-2 text-center">⚠️ Inflation: ${inflation.toFixed(1)}x costs</div>` : ''}
         </div>
         ${gameState.combo > 2 ? `<div class="text-center font-bold text-lg text-yellow-300 mt-2 animate-pulse">${gameState.combo}x Combo!</div>` : ''}
     `;
@@ -623,17 +669,24 @@ const renderTapScreen = () => {
 };
 
 const renderCardsScreen = () => {
+    const inflation = getInflationMultiplier(gameState.totalLifetimeCoins);
+    
     return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Candidate Cards</h2>
+    ${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center">
+        <p class="text-red-300 text-sm">⚠️ Economic Inflation: All costs are ${inflation.toFixed(1)}x higher</p>
+    </div>` : ''}
     <div class="space-y-4">
         ${GAME_CONFIG.candidates.map(candidate => {
             const userCard = gameState.userCards.find(c => c.id === candidate.id);
             const isActive = candidate.active;
-            const cardClass = userCard ? 
-                (userCard.activated ? 'border-green-400 bg-slate-800' : 'border-slate-600 bg-slate-800/70') : 
-                'border-slate-700 bg-slate-800/50';
+            const cardClass = userCard ? 'border-green-400 bg-slate-800' : 'border-slate-700 bg-slate-800/50';
             const finalCardClass = isActive ? cardClass : 'border-slate-700 bg-slate-900/60 filter-grayscale';
-            const upgradeCost = userCard ? candidate.bid * userCard.level * 1.5 : 0;
+            
+            // Apply inflation to costs
+            const baseCost = candidate.bid;
+            const actualBid = Math.floor(baseCost * inflation);
+            const upgradeCost = userCard ? Math.floor(candidate.bid * userCard.level * 2 * inflation) : 0;
             
             return `
             <div class="p-4 rounded-xl border-2 relative ${finalCardClass}">
@@ -652,24 +705,22 @@ const renderCardsScreen = () => {
                         <p class="text-sm text-gray-400">${GAME_CONFIG.parties[candidate.party]?.name || 'Unknown Party'}</p>
                         <p class="text-xs text-gray-300 mt-1">PPH: +${formatNumber(candidate.profitPerHour * (userCard ? userCard.level : 1))}</p>
                         <p class="text-xs text-gray-400 mt-1">${candidate.policy}</p>
+                        ${userCard ? `<p class="text-xs text-green-400 mt-1">✓ Generating income</p>` : ''}
+                        ${inflation > 1 && !userCard ? `<p class="text-xs text-red-400 mt-1">Base cost: ${formatNumber(baseCost)}💰</p>` : ''}
                     </div>
                 </div>
                 <div class="flex justify-between mt-4 gap-2">
                     ${userCard ? `
-                        <button data-action="toggleActivateCard" data-id="${candidate.id}" 
-                                class="w-1/2 py-2 rounded font-bold text-white ${userCard.activated ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'}">
-                            ${userCard.activated ? 'Deactivate' : 'Activate'}
-                        </button>
                         <button data-action="upgradeCard" data-id="${candidate.id}" 
-                                class="w-1/2 bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white disabled:bg-gray-500" 
+                                class="w-full bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white disabled:bg-gray-500" 
                                 ${!isActive || gameState.coins < upgradeCost ? 'disabled' : ''}>
                             Upgrade (${formatNumber(upgradeCost)}💰)
                         </button>
                     ` : `
                         <button data-action="buyCard" data-id="${candidate.id}" 
                                 class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" 
-                                ${!isActive || gameState.coins < candidate.bid ? 'disabled' : ''}>
-                            ${isActive ? `Buy (${formatNumber(candidate.bid)}💰)` : '<i class="fa fa-lock mr-2"></i> Unavailable'}
+                                ${!isActive || gameState.coins < actualBid ? 'disabled' : ''}>
+                            ${isActive ? `Buy (${formatNumber(actualBid)}💰)` : '<i class="fa fa-lock mr-2"></i> Unavailable'}
                         </button>
                     `}
                 </div>
@@ -752,14 +803,19 @@ const renderMediaScreen = () => {
 };
 
 const renderPartyScreen = () => {
+    const inflation = getInflationMultiplier(gameState.totalLifetimeCoins);
+    
     return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Political Parties</h2>
+    ${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center">
+        <p class="text-red-300 text-sm">⚠️ Economic Inflation: All costs are ${inflation.toFixed(1)}x higher</p>
+    </div>` : ''}
     <div class="space-y-4">
         ${Object.entries(GAME_CONFIG.parties).map(([id, party]) => {
             const isActive = party.active;
             const partyState = gameState.parties[id] || { level: 1, xp: 0 };
-            const xpPercent = (partyState.xp / (partyState.level * 500)) * 100;
-            const upgradeCost = partyState.level * 5;
+            const xpPercent = (partyState.xp / (partyState.level * 750)) * 100; // Higher XP requirements
+            const upgradeCost = Math.floor(partyState.level * 8 * inflation); // Higher base cost with inflation
             
             if (!isActive) {
                 return `
@@ -788,19 +844,19 @@ const renderPartyScreen = () => {
                     </div>
                 </div>
                 <p class="text-sm text-gray-200 my-3">${party.description}</p>
-                <div class="text-xs text-gray-200">XP: ${formatNumber(partyState.xp)} / ${formatNumber(partyState.level * 500)}</div>
+                <div class="text-xs text-gray-200">XP: ${formatNumber(partyState.xp)} / ${formatNumber(partyState.level * 750)}</div>
                 <div class="w-full bg-gray-600 rounded-full h-2 mb-3">
                     <div class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: ${xpPercent}%"></div>
                 </div>
                 <div class="flex gap-2">
                     <button data-action="investParty" data-id="${id}" 
                             class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">
-                        Invest (1k💰)
+                        Invest (2k💰) <!-- Increased cost -->
                     </button>
                     <button data-action="upgradeParty" data-id="${id}" 
                             class="w-1/2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded disabled:bg-gray-500" 
                             ${gameState.influenceTokens < upgradeCost ? 'disabled' : ''}>
-                        Upgrade (${upgradeCost}💎)
+                        Upgrade (${formatNumber(upgradeCost)}💎)
                     </button>
                 </div>
             </div>`;
@@ -809,38 +865,51 @@ const renderPartyScreen = () => {
 };
 
 const renderStoreScreen = () => {
+    const inflation = getInflationMultiplier(gameState.totalLifetimeCoins);
+    
     return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Store</h2>
+    ${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center">
+        <p class="text-red-300 text-sm">⚠️ Economic Inflation: All costs are ${inflation.toFixed(1)}x higher</p>
+    </div>` : ''}
     <div class="space-y-4">
         <div>
             <h3 class="font-bold text-lg text-blue-300 mb-2">Staff</h3>
-            ${GAME_CONFIG.managers.map(manager => `
-            <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2">
-                <div>
-                    <h4 class="font-bold text-white"><span class="text-2xl">${manager.icon}</span> ${manager.name}</h4>
-                    <p class="text-sm text-gray-400">${manager.description}</p>
-                </div>
-                <button data-action="buyManager" data-id="${manager.id}" 
-                        class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" 
-                        ${gameState.managerCards.includes(manager.id) || gameState.coins < manager.cost ? 'disabled' : ''}>
-                    ${gameState.managerCards.includes(manager.id) ? 'Hired' : `Hire (${formatNumber(manager.cost)}💰)`}
-                </button>
-            </div>`).join('')}
+            ${GAME_CONFIG.managers.map(manager => {
+                const actualCost = Math.floor(manager.cost * inflation);
+                return `
+                <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2">
+                    <div>
+                        <h4 class="font-bold text-white"><span class="text-2xl">${manager.icon}</span> ${manager.name}</h4>
+                        <p class="text-sm text-gray-400">${manager.description}</p>
+                        ${inflation > 1 ? `<p class="text-xs text-red-400">Base cost: ${formatNumber(manager.cost)}💰</p>` : ''}
+                    </div>
+                    <button data-action="buyManager" data-id="${manager.id}" 
+                            class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" 
+                            ${gameState.managerCards.includes(manager.id) || gameState.coins < actualCost ? 'disabled' : ''}>
+                        ${gameState.managerCards.includes(manager.id) ? 'Hired' : `Hire (${formatNumber(actualCost)}💰)`}
+                    </button>
+                </div>`;
+            }).join('')}
         </div>
         <div>
             <h3 class="font-bold text-lg text-purple-400 mb-2">Boosts</h3>
-            ${BOOSTS.map(boost => `
-            <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2">
-                <div>
-                    <h4 class="font-bold text-white"><span class="text-2xl">${boost.icon}</span> ${boost.name}</h4>
-                    <p class="text-sm text-gray-400">${boost.duration > 0 ? `${boost.duration} seconds` : 'Instant effect'}</p>
-                </div>
-                <button data-action="activateBoost" data-id="${boost.id}" 
-                        class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" 
-                        ${gameState.coins < boost.cost ? 'disabled' : ''}>
-                    Activate (${formatNumber(boost.cost)}💰)
-                </button>
-            </div>`).join('')}
+            ${BOOSTS.map(boost => {
+                const actualCost = Math.floor(boost.cost * inflation);
+                return `
+                <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2">
+                    <div>
+                        <h4 class="font-bold text-white"><span class="text-2xl">${boost.icon}</span> ${boost.name}</h4>
+                        <p class="text-sm text-gray-400">${boost.duration > 0 ? `${boost.duration} seconds` : 'Instant effect'}</p>
+                        ${inflation > 1 ? `<p class="text-xs text-red-400">Base cost: ${formatNumber(boost.cost)}💰</p>` : ''}
+                    </div>
+                    <button data-action="activateBoost" data-id="${boost.id}" 
+                            class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" 
+                            ${gameState.coins < actualCost ? 'disabled' : ''}>
+                        Activate (${formatNumber(actualCost)}💰)
+                    </button>
+                </div>`;
+            }).join('')}
         </div>
     </div>`;
 };
@@ -914,38 +983,41 @@ const handleAction = (e) => {
                 return;
             }
             
-            if (gameState.coins >= c.bid) {
-                gameState.coins -= c.bid;
-                gameState.userCards.push({ id: parseInt(id), level: 1, activated: false });
-                showMessage(`Hired ${c.name}!`, 'success');
+            const inflation = getInflationMultiplier(gameState.totalLifetimeCoins);
+            const actualBid = Math.floor(c.bid * inflation);
+            
+            if (gameState.coins >= actualBid) {
+                gameState.coins -= actualBid;
+                gameState.userCards.push({ id: parseInt(id), level: 1 });
+                showMessage(`Hired ${c.name} for ${formatNumber(actualBid)}💰!`, 'success');
                 checkAchievements();
                 updateAll();
             } else {
-                showMessage("Not enough coins!", "error");
+                showMessage(`Need ${formatNumber(actualBid)} coins!`, "error");
             }
         },
         upgradeCard: () => {
             const uc = gameState.userCards.find(uc => uc.id == id);
+            const c = GAME_CONFIG.candidates.find(c => c.id == id);
+            
+            if (!c.active) {
+                showMessage("Cannot upgrade an inactive candidate!", "error");
+                return;
+            }
+            
             if(uc) {
-                const c = GAME_CONFIG.candidates.find(c => c.id == id);
-                const cost = c.bid * uc.level * 1.5;
-                if (gameState.coins >= cost) {
-                    gameState.coins -= cost;
+                const inflation = getInflationMultiplier(gameState.totalLifetimeCoins);
+                const upgradeCost = Math.floor(c.bid * uc.level * 2 * inflation);
+                
+                if (gameState.coins >= upgradeCost) {
+                    gameState.coins -= upgradeCost;
                     uc.level++;
-                    showMessage(`${c.name} upgraded to Lv.${uc.level}!`, 'success');
+                    showMessage(`${c.name} upgraded to Lv.${uc.level} for ${formatNumber(upgradeCost)}💰!`, 'success');
                     checkMissionProgress('level', uc.level);
                     updateAll();
                 } else {
-                    showMessage("Not enough coins!", "error");
+                    showMessage(`Need ${formatNumber(upgradeCost)} coins!`, "error");
                 }
-            }
-        },
-        toggleActivateCard: () => {
-            const uc = gameState.userCards.find(uc => uc.id == id);
-            if (uc) {
-                uc.activated = !uc.activated;
-                showMessage(`${GAME_CONFIG.candidates.find(c => c.id == id)?.name} ${uc.activated ? 'activated' : 'deactivated'}!`, 'success');
-                updateAll();
             }
         },
         watchVideo: () => {
@@ -977,50 +1049,73 @@ const handleAction = (e) => {
             }
         },
         investParty: () => {
+            const party = GAME_CONFIG.parties[id];
             const partyState = gameState.parties[id];
-            if (partyState && gameState.coins >= 1000) {
-                gameState.coins -= 1000;
-                partyState.xp += 100;
-                partyState.totalInvestment += 1000;
-                if(partyState.xp >= partyState.level * 500) {
-                    partyState.xp -= partyState.level * 500;
+            
+            if (!party.active) {
+                showMessage("This party is currently inactive!", "error");
+                return;
+            }
+            
+            const investmentAmount = 2000; // Increased from 1000
+            
+            if (partyState && gameState.coins >= investmentAmount) {
+                gameState.coins -= investmentAmount;
+                partyState.xp += 150; // More XP for higher cost
+                partyState.totalInvestment += investmentAmount;
+                if(partyState.xp >= partyState.level * 750) { // Higher XP requirement
+                    partyState.xp -= partyState.level * 750;
                     partyState.level++;
-                    showMessage(`${GAME_CONFIG.parties[id].name} leveled up to Lv.${partyState.level}!`, 'success');
+                    showMessage(`${party.name} leveled up to Lv.${partyState.level}!`, 'success');
                 }
                 updateAll();
             } else {
-                showMessage("Not enough coins!", "error");
+                showMessage(`Need ${formatNumber(investmentAmount)} coins!`, "error");
             }
         },
         upgradeParty: () => {
+            const party = GAME_CONFIG.parties[id];
             const partyState = gameState.parties[id];
-            const cost = partyState.level * 5;
-            if(partyState && gameState.influenceTokens >= cost) {
-                gameState.influenceTokens -= cost;
+            const inflation = getInflationMultiplier(gameState.totalLifetimeCoins);
+            const upgradeCost = Math.floor(partyState.level * 8 * inflation);
+            
+            if (!party.active) {
+                showMessage("Cannot upgrade an inactive party!", "error");
+                return;
+            }
+            
+            if(partyState && gameState.influenceTokens >= upgradeCost) {
+                gameState.influenceTokens -= upgradeCost;
                 partyState.level++;
-                showMessage(`${GAME_CONFIG.parties[id].name} upgraded to Lv.${partyState.level}!`, 'success');
+                showMessage(`${party.name} upgraded to Lv.${partyState.level} for ${formatNumber(upgradeCost)}💎!`, 'success');
                 updateAll();
             } else {
-                showMessage("Not enough influence tokens!", "error");
+                showMessage(`Need ${formatNumber(upgradeCost)} influence tokens!`, "error");
             }
         },
         buyManager: () => {
             const m = GAME_CONFIG.managers.find(m => m.id === id);
-            if(m && gameState.coins >= m.cost && !gameState.managerCards.includes(id)) {
-                gameState.coins -= m.cost;
+            const inflation = getInflationMultiplier(gameState.totalLifetimeCoins);
+            const actualCost = Math.floor(m.cost * inflation);
+            
+            if(m && gameState.coins >= actualCost && !gameState.managerCards.includes(id)) {
+                gameState.coins -= actualCost;
                 gameState.managerCards.push(id);
-                showMessage(`Hired ${m.name}!`, 'success');
+                showMessage(`Hired ${m.name} for ${formatNumber(actualCost)}💰!`, 'success');
                 updateAll();
             } else if (gameState.managerCards.includes(id)) {
                 showMessage("You already hired this manager!", "info");
             } else {
-                showMessage("Not enough coins!", "error");
+                showMessage(`Need ${formatNumber(actualCost)} coins!`, "error");
             }
         },
         activateBoost: () => {
             const b = BOOSTS.find(b => b.id === id);
-            if(b && gameState.coins >= b.cost) {
-                gameState.coins -= b.cost;
+            const inflation = getInflationMultiplier(gameState.totalLifetimeCoins);
+            const actualCost = Math.floor(b.cost * inflation);
+            
+            if(b && gameState.coins >= actualCost) {
+                gameState.coins -= actualCost;
                 if(b.energy) {
                     gameState.energy = Math.min(ENERGY_MAX, gameState.energy + b.energy);
                     showMessage(`${b.name} activated! Energy restored.`, 'success');
@@ -1029,13 +1124,14 @@ const handleAction = (e) => {
                     gameState.activeBoosts.push({ 
                         id, 
                         endTime: Date.now() + b.duration * 1000, 
-                        multiplier: b.multiplier 
+                        multiplier: b.multiplier,
+                        comboTime: b.comboTime
                     });
                     showMessage(`${b.name} activated for ${b.duration} seconds!`, 'success');
                 }
                 updateAll();
             } else {
-                showMessage("Not enough coins!", "error");
+                showMessage(`Need ${formatNumber(actualCost)} coins!`, "error");
             }
         }
     };
