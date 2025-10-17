@@ -1142,36 +1142,61 @@ const handleAction = (e) => {
                 }
             }
         },
-        watchVideo: () => {
-            const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
-            const watchId = (type === 'candidate' ? 'c' : 'p') + id;
-            
-            if (item) {
-                const videoUrl = item.promoVideo.replace("watch?v=", "embed/");
-                const hasWatched = gameState.watchedVideos[watchId];
-                const rewardText = hasWatched ? 
-                    'Watch again (No reward)' : 
-                    `Watch Video (+${formatNumber(item.videoReward)}💰)`;
-                
-                const content = `
-                    <div class="aspect-w-16 aspect-h-9">
-                        <iframe src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-64 rounded"></iframe>
-                    </div>
-                    <div class="flex gap-2 mt-4">
-                        <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" 
-                                class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded ${hasWatched ? 'opacity-50 cursor-not-allowed' : ''}" 
-                                ${hasWatched ? 'disabled' : ''}>
-                            ${hasWatched ? 'Already Rewarded' : `Claim ${formatNumber(item.videoReward)}💰`}
-                        </button>
-                        <button data-action="closeModal" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">
-                            Close
-                        </button>
-                    </div>
-                    ${hasWatched ? `<p class="text-center text-green-400 text-sm mt-2">You can watch this video anytime, but rewards are only given once.</p>` : ''}
-                `;
-                renderModal(`${item.name} - Campaign Video`, content, false);
+watchVideo: () => {
+    const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
+    const watchId = (type === 'candidate' ? 'c' : 'p') + id;
+    
+    if (item) {
+        // Fix YouTube URL - convert shorts to embed format
+        let videoUrl = item.promoVideo;
+        
+        // Handle YouTube Shorts URLs
+        if (videoUrl.includes('youtube.com/shorts/')) {
+            const videoId = videoUrl.split('/shorts/')[1].split('?')[0];
+            videoUrl = `https://www.youtube.com/embed/${videoId}`;
+        }
+        // Handle regular YouTube watch URLs
+        else if (videoUrl.includes('watch?v=')) {
+            videoUrl = videoUrl.replace("watch?v=", "embed/");
+        }
+        // Handle youtu.be short URLs
+        else if (videoUrl.includes('youtu.be/')) {
+            const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+            videoUrl = `https://www.youtube.com/embed/${videoId}`;
+        }
+        // If it's already an embed URL, use as-is
+        else if (!videoUrl.includes('embed')) {
+            // Fallback: try to extract video ID from various formats
+            const videoId = videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+            if (videoId) {
+                videoUrl = `https://www.youtube.com/embed/${videoId[1]}`;
             }
-        },
+        }
+
+        const hasWatched = gameState.watchedVideos[watchId];
+        const rewardText = hasWatched ? 
+            'Watch again (No reward)' : 
+            `Watch Video (+${formatNumber(item.videoReward)}💰)`;
+        
+        const content = `
+            <div class="aspect-w-16 aspect-h-9">
+                <iframe src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-64 rounded"></iframe>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" 
+                        class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded ${hasWatched ? 'opacity-50 cursor-not-allowed' : ''}" 
+                        ${hasWatched ? 'disabled' : ''}>
+                    ${hasWatched ? 'Already Rewarded' : `Claim ${formatNumber(item.videoReward)}💰`}
+                </button>
+                <button data-action="closeModal" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">
+                    Close
+                </button>
+            </div>
+            ${hasWatched ? `<p class="text-center text-green-400 text-sm mt-2">You can watch this video anytime, but rewards are only given once.</p>` : ''}
+        `;
+        renderModal(`${item.name} - Campaign Video`, content, false);
+    }
+},
         claimVideoReward: () => {
             const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
             const watchId = (type === 'candidate' ? 'c' : 'p') + id;
