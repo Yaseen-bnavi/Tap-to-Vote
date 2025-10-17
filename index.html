@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <title>Supreme Strategic Campaign Simulator (Iraq)</title>
-    <!-- For production, download Tailwind CSS and host it yourself -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57,6 +56,8 @@
         .nav-item.active { color: #3b82f6; background-color: #1e293b; }
         .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; }
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 1000; }
+        /* ✅ ADDED for locked cards */
+        .filter-grayscale { filter: grayscale(1); }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
@@ -73,7 +74,8 @@
 
     <div id="messageBox" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-[100]"></div>
     
-    <button id="adminToggle" class="fixed top-4 right-4 z-50 bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg"><i class="fa fa-cog"></i></button>
+    <!-- ✅ MODIFIED: Admin button is now hidden by default to prevent non-admins from seeing it -->
+    <button id="adminToggle" style="display: none;" class="fixed top-4 right-4 z-50 bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg"><i class="fa fa-cog"></i></button>
 
     <header id="header" class="w-full mb-4 p-4 bg-slate-800/80 rounded-xl shadow-2xl border border-slate-700/50 sticky top-4 z-30">
         <!-- Header content will be dynamically rendered by JS -->
@@ -98,7 +100,17 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-// --- CONSTANTS & CONFIG ---
+// ==========================================
+// 🔒 ADMIN & ASSET CONFIGURATION
+// ==========================================
+const YOUR_ADMIN_TELEGRAM_ID = Mohammaed_Abdulhmaeed; // <-- ⚠️ REPLACE WITH YOUR TELEGRAM ID
+
+// ✅ Base URL for your GitHub images. Assumes /photos/ and /logos/ folders exist.
+const GITHUB_ASSETS_BASE_URL = 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/main/';
+// ==========================================
+
+
+// --- CONSTANTS & CONFIG (Original values maintained) ---
 const TCI_SCALING = { COINS: 10000, CARD_LEVEL: 10, PARTY_LEVEL: 50 };
 const ENERGY_MAX = 100;
 const ENERGY_REGEN_RATE = 1;
@@ -108,14 +120,13 @@ const DAILY_GOAL = 100;
 const DAILY_REWARD_COINS = 5000;
 const DAILY_REWARD_TOKENS = 1;
 
-// ✅ CORRECT GITHUB URLs - Using your specific commit hash
+// ✅ Using the main branch for config files for easier updates
 const CONFIG_URLS = {
-    parties: 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/3e01a329df8b190399b724d66cd45de4cb1bb12e/config/parties.json',
-    candidates: 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/3e01a329df8b190399b724d66cd45de4cb1bb12e/config/candidates.json',
-    managers: 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/3e01a329df8b190399b724d66cd45de4cb1bb12e/config/managers.json'
+    parties: `${GITHUB_ASSETS_BASE_URL}config/parties.json`,
+    candidates: `${GITHUB_ASSETS_BASE_URL}config/candidates.json`,
+    managers: `${GITHUB_ASSETS_BASE_URL}config/managers.json`
 };
 
-// Admin contact information
 const ADMIN_CONTACT = {
     telegram: '@campaign_admin',
     email: 'admin@campaign.com',
@@ -148,20 +159,12 @@ const BOOSTS = [
     { id: 'boost_energy', name: "Energy Refill", duration: 0, cost: 3000, energy: 50, icon: '🔋' },
 ];
 
-// Empty config that will be populated from external files
-let GAME_CONFIG = {
-    parties: {},
-    candidates: [],
-    managers: []
-};
-
-// --- GAME STATE ---
+let GAME_CONFIG = { parties: {}, candidates: [], managers: [] };
 let gameState;
 let activeTab = 'tap';
 let messageTimeout;
 let telegramUser = null;
 
-// --- UTILS ---
 const formatNumber = (num) => {
   if (isNaN(num) || num === null) return '0';
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
@@ -180,142 +183,67 @@ const showMessage = (text, type = 'info') => {
     messageTimeout = setTimeout(() => { messageBox.innerHTML = ''; }, 3000);
 };
 
-// --- EXTERNAL CONFIG LOADING WITH PERSISTENCE ---
 const loadExternalConfig = async () => {
     try {
-        console.log('Loading external configuration...');
-        
-        // Try to load persisted config from localStorage first
-        let persistedConfig = null;
-        try {
-            const savedConfig = localStorage.getItem('campaignConfig');
-            if (savedConfig) {
-                persistedConfig = JSON.parse(savedConfig);
-                console.log('✅ Found persisted config in localStorage');
-            }
-        } catch (e) {
-            console.warn('Could not load persisted config from localStorage', e);
-        }
+        let persistedConfig = JSON.parse(localStorage.getItem('campaignConfig') || 'null');
 
-        // Load parties config
-        const partiesResponse = await fetch(CONFIG_URLS.parties);
-        if (partiesResponse.ok) {
-            const freshParties = await partiesResponse.json();
-            // Merge with persisted config if available
-            if (persistedConfig && persistedConfig.parties) {
-                GAME_CONFIG.parties = mergeConfigs(freshParties, persistedConfig.parties, 'parties');
-                console.log('✅ Parties config loaded and merged with persisted data');
-            } else {
-                GAME_CONFIG.parties = freshParties;
-                console.log('✅ Parties config loaded from external source');
-            }
-        } else {
-            throw new Error(`Failed to load parties: ${partiesResponse.status}`);
-        }
+        const fetchAndMerge = async (url, key, type) => {
+            const response = await fetch(`${url}?v=${Date.now()}`);
+            if (!response.ok) throw new Error(`Failed to load ${key}`);
+            const freshData = await response.json();
+            GAME_CONFIG[key] = persistedConfig ? mergeConfigs(freshData, persistedConfig[key] || {}, type) : freshData;
+        };
 
-        // Load candidates config
-        const candidatesResponse = await fetch(CONFIG_URLS.candidates);
-        if (candidatesResponse.ok) {
-            const freshCandidates = await candidatesResponse.json();
-            // Merge with persisted config if available
-            if (persistedConfig && persistedConfig.candidates) {
-                GAME_CONFIG.candidates = mergeConfigs(freshCandidates, persistedConfig.candidates, 'candidates');
-                console.log('✅ Candidates config loaded and merged with persisted data');
-            } else {
-                GAME_CONFIG.candidates = freshCandidates;
-                console.log('✅ Candidates config loaded from external source');
-            }
-        } else {
-            throw new Error(`Failed to load candidates: ${candidatesResponse.status}`);
-        }
-
-        // Load managers config
-        const managersResponse = await fetch(CONFIG_URLS.managers);
-        if (managersResponse.ok) {
-            const freshManagers = await managersResponse.json();
-            // Merge with persisted config if available
-            if (persistedConfig && persistedConfig.managers) {
-                GAME_CONFIG.managers = mergeConfigs(freshManagers, persistedConfig.managers, 'managers');
-                console.log('✅ Managers config loaded and merged with persisted data');
-            } else {
-                GAME_CONFIG.managers = freshManagers;
-                console.log('✅ Managers config loaded from external source');
-            }
-        } else {
-            throw new Error(`Failed to load managers: ${managersResponse.status}`);
-        }
-        
+        await Promise.all([
+            fetchAndMerge(CONFIG_URLS.parties, 'parties', 'parties'),
+            fetchAndMerge(CONFIG_URLS.candidates, 'candidates', 'candidates'),
+            fetchAndMerge(CONFIG_URLS.managers, 'managers', 'managers')
+        ]);
         console.log('🎉 All external config loaded successfully!');
-        
     } catch (error) {
         console.error('❌ Error loading external config:', error);
+        // Fallback to default config if loading fails
+        GAME_CONFIG = {
+            parties: {
+                p1: { name: "Sairoon Current", logo: 'party1.png', color: 'bg-red-700/80', description: "A cross-sectarian alliance.", photo: "party1.png", active: true, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
+                p2: { name: "Fatah Alliance", logo: 'party2.png', color: 'bg-green-700/80', description: "Coalition of Iran-backed parties.", photo: "party2.png", active: false, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
+            },
+            candidates: [
+                { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 1000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: '⭐', photo: "candidate1.jpg", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000, bio: "Default candidate bio.", profitPerHour: 10, active: true, sponsored: false },
+            ],
+            managers: [
+                { id: 'm1', name: "Default Manager", icon: '📱', description: "Default manager description", effect: 1.2, cost: 5000 }
+            ]
+        };
         showMessage('Using default configuration', 'info');
-        
-        // Try to use persisted config as fallback
-        try {
-            const savedConfig = localStorage.getItem('campaignConfig');
-            if (savedConfig) {
-                const persistedConfig = JSON.parse(savedConfig);
-                GAME_CONFIG = { ...GAME_CONFIG, ...persistedConfig };
-                console.log('✅ Using persisted config as fallback');
-            } else {
-                // Fallback to default config
-                GAME_CONFIG = {
-                    parties: {
-                        p1: { name: "Sairoon Current", logo: '🇮🇶', color: 'bg-red-700/80', description: "A cross-sectarian alliance.", photo: "https://picsum.photos/seed/p1/80/80", active: true, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
-                        p2: { name: "Fatah Alliance", logo: '🛡️', color: 'bg-green-700/80', description: "Coalition of Iran-backed parties.", photo: "https://picsum.photos/seed/p2/80/80", active: false, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
-                    },
-                    candidates: [
-                        { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 1000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: '⭐', photo: "https://picsum.photos/seed/candidate/100/100", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000, bio: "Default candidate bio.", profitPerHour: 10, active: true, sponsored: false },
-                    ],
-                    managers: [
-                        { id: 'm1', name: "Default Manager", icon: '📱', description: "Default manager description", effect: 1.2, cost: 5000 }
-                    ]
-                };
-                console.log('⚠️ Using default fallback config');
-            }
-        } catch (e) {
-            console.error('Failed to use persisted config as fallback', e);
-        }
     }
 };
 
-// Helper function to merge fresh config with persisted config
 const mergeConfigs = (freshConfig, persistedConfig, configType) => {
     if (configType === 'candidates') {
-        // For candidates array, merge by id
         return freshConfig.map(freshCandidate => {
-            const persistedCandidate = persistedConfig.find(p => p.id === freshCandidate.id);
-            if (persistedCandidate) {
-                // Merge the fresh candidate with persisted activation status
-                return {
-                    ...freshCandidate,
-                    active: persistedCandidate.active,
-                    sponsored: persistedCandidate.sponsored
-                };
-            }
-            return freshCandidate;
+            const persistedCandidate = Array.isArray(persistedConfig) ? persistedConfig.find(p => p.id === freshCandidate.id) : null;
+            return { 
+                ...freshCandidate, 
+                active: persistedCandidate?.active ?? freshCandidate.active,
+                sponsored: persistedCandidate?.sponsored ?? freshCandidate.sponsored
+            };
         });
     } else if (configType === 'parties') {
-        // For parties object, merge by key
         const merged = { ...freshConfig };
         Object.keys(persistedConfig).forEach(key => {
             if (merged[key]) {
-                merged[key] = {
-                    ...merged[key],
-                    active: persistedConfig[key].active
+                merged[key] = { 
+                    ...merged[key], 
+                    active: persistedConfig[key]?.active ?? merged[key].active
                 };
             }
         });
         return merged;
-    } else if (configType === 'managers') {
-        // For managers, just return fresh config (no activation status for managers)
-        return freshConfig;
     }
     return freshConfig;
 };
 
-// Save config changes to localStorage
 const saveConfigChanges = () => {
     try {
         const configToSave = {
@@ -331,7 +259,6 @@ const saveConfigChanges = () => {
     }
 };
 
-// --- CORE LOGIC ---
 const calculatePPH = (state) => {
     let totalPPH = 0;
     if (!state || !state.userCards) return 0;
@@ -430,7 +357,7 @@ const createDefaultGameState = () => ({
     telegramId: null,
     telegramFirstName: null,
     telegramLastName: null,
-    appVersion: '1.1.0'
+    appVersion: '1.5.0'
 });
 
 const loadGameState = () => {
@@ -438,7 +365,7 @@ const loadGameState = () => {
     try {
         savedStateJSON = localStorage.getItem('campaignSimulatorSave');
     } catch (e) {
-        console.warn("Could not access localStorage. Starting a fresh game.", e);
+        console.warn("Could not access localStorage.", e);
     }
 
     const defaultState = createDefaultGameState();
@@ -446,23 +373,13 @@ const loadGameState = () => {
     if (savedStateJSON) {
         try {
             const parsed = JSON.parse(savedStateJSON);
-            const sanitizedParsed = {
+            // Properly merge the state to preserve all properties
+            initialState = { 
+                ...defaultState, 
                 ...parsed,
-                coins: typeof parsed.coins === 'number' ? parsed.coins : defaultState.coins,
-                influenceTokens: typeof parsed.influenceTokens === 'number' ? parsed.influenceTokens : defaultState.influenceTokens,
-                totalLifetimeCoins: typeof parsed.totalLifetimeCoins === 'number' ? parsed.totalLifetimeCoins : defaultState.totalLifetimeCoins,
-                lastPlayTime: typeof parsed.lastPlayTime === 'number' ? parsed.lastPlayTime : defaultState.lastPlayTime,
+                parties: { ...defaultState.parties, ...parsed.parties },
+                missionProgress: { ...defaultState.missionProgress, ...parsed.missionProgress }
             };
-            initialState = { ...defaultState, ...sanitizedParsed, parties: { ...defaultState.parties, ...parsed.parties } };
-            
-            // Version migration
-            if (!initialState.appVersion || initialState.appVersion === '1.0.0') {
-                initialState.appVersion = '1.1.0';
-                // Add new fields for version 1.1.0
-                initialState.telegramId = initialState.telegramId || null;
-                initialState.telegramFirstName = initialState.telegramFirstName || null;
-                initialState.telegramLastName = initialState.telegramLastName || null;
-            }
         } catch (e) {
             console.error("Failed to parse saved state, starting fresh.", e);
             initialState = defaultState;
@@ -512,13 +429,11 @@ const checkAchievements = () => {
         if (ach.type === 'taps' && gameState.totalTaps >= ach.threshold) conditionMet = true;
         if (ach.type === 'coins' && gameState.totalLifetimeCoins >= ach.threshold) conditionMet = true;
         if (ach.type === 'cards' && gameState.userCards.length >= ach.threshold) conditionMet = true;
-
         if (conditionMet) {
             gameState.achievements.push(ach.id);
             unlocked.push(ach);
         }
     });
-
     if (unlocked.length > 0) {
         const achievement = unlocked[0];
         const content = `<div class="text-center"><div class="text-6xl mb-2">🏆</div><p class="text-gray-300">${achievement.description}</p></div>`;
@@ -527,32 +442,33 @@ const checkAchievements = () => {
     }
 };
 
-// --- EVENT HANDLERS ---
 const handleTap = (e) => {
     e.preventDefault();
-    if (gameState.energy < 1) return;
+    if (gameState.energy < 1) {
+        showMessage("Not enough energy! Wait for regeneration.", "error");
+        return;
+    }
 
     const now = Date.now();
     gameState.energy -= 1;
-    let tapValue = gameState.tapPower;
+    let tapValue = calculateTapPower(gameState);
     
-    const isCritical = gameState.userCards.some(uc => uc.activated && GAME_CONFIG.candidates.find(c => c.id === uc.id)?.abilityType === 'critical') && Math.random() < 0.05;
+    // Critical hit chance
+    const isCritical = Math.random() < 0.05; // 5% chance
     if (isCritical) tapValue *= 3;
     
     gameState.combo = (now - gameState.lastTapTime < COMBO_TIMEOUT) ? gameState.combo + 1 : 1;
     let comboMultiplier = 1 + Math.min(gameState.combo * 0.05, 1);
     tapValue = Math.floor(tapValue * comboMultiplier);
 
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
+    const { clientX, clientY } = e.touches ? e.touches[0] : e;
     const feedback = document.createElement('div');
     feedback.className = 'tap-feedback' + (isCritical ? ' text-amber-300 scale-125' : '');
-    feedback.textContent = `+${formatNumber(tapValue)}`;
+    feedback.textContent = `+${formatNumber(tapValue)}` + (isCritical ? ' CRITICAL!' : '');
     feedback.style.left = `${clientX - 25}px`;
     feedback.style.top = `${clientY - 45}px`;
     document.body.appendChild(feedback);
-    setTimeout(() => { if(feedback.parentElement) feedback.parentElement.removeChild(feedback); }, 900);
+    setTimeout(() => { feedback.remove(); }, 900);
 
     gameState.coins += tapValue;
     gameState.totalTaps += 1;
@@ -564,12 +480,10 @@ const handleTap = (e) => {
     checkMissionProgress('coins', tapValue);
     
     if(gameState.dailyTaps === DAILY_GOAL && getTodayString() !== gameState.lastDailyRewardDate) {
-        const doubleRewards = gameState.userCards.some(uc => uc.activated && GAME_CONFIG.candidates.find(c => c.id === uc.id)?.abilityType === 'doubleRewards');
-        const mult = doubleRewards ? 2 : 1;
-        gameState.coins += DAILY_REWARD_COINS * mult;
-        gameState.influenceTokens += DAILY_REWARD_TOKENS * mult;
+        gameState.coins += DAILY_REWARD_COINS;
+        gameState.influenceTokens += DAILY_REWARD_TOKENS;
         gameState.lastDailyRewardDate = getTodayString();
-        showMessage(`Daily Goal! +${formatNumber(DAILY_REWARD_COINS*mult)}💰 & +${DAILY_REWARD_TOKENS*mult}💎`, 'success');
+        showMessage(`Daily Goal! +${formatNumber(DAILY_REWARD_COINS)}💰 & +${DAILY_REWARD_TOKENS}💎`, 'success');
     }
     
     checkAchievements();
@@ -581,6 +495,9 @@ const checkMissionProgress = (type, value) => {
     DAILY_MISSIONS.forEach(mission => {
         if(mission.type === type && !gameState.completedMissions.includes(mission.id)) {
             const progress = gameState.missionProgress[mission.id];
+            if (!progress) {
+                gameState.missionProgress[mission.id] = { progress: 0 };
+            }
             progress.progress += value;
             if (progress.progress >= mission.target) {
                 gameState.completedMissions.push(mission.id);
@@ -589,19 +506,11 @@ const checkMissionProgress = (type, value) => {
                 showMessage(`Mission Complete: ${mission.title}! +${formatNumber(mission.reward)}💰`, 'success');
                 missionCompleted = true;
             }
-        } else if (mission.type === 'level' && type === 'level' && !gameState.completedMissions.includes(mission.id)) {
-             if (value >= mission.target) {
-                gameState.completedMissions.push(mission.id);
-                gameState.coins += mission.reward;
-                showMessage(`Mission Complete: ${mission.title}! +${formatNumber(mission.reward)}💰`, 'success');
-                missionCompleted = true;
-             }
         }
     });
     if(missionCompleted) updateAll();
 };
 
-// --- RENDER FUNCTIONS ---
 const navigate = (tabName) => {
     activeTab = tabName;
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -625,6 +534,19 @@ const renderCurrentTab = () => {
     if (renderers[activeTab]) {
         container.innerHTML = renderers[activeTab]();
     }
+    
+    // Re-attach event listeners for tap button
+    if (activeTab === 'tap') {
+        const tapButton = document.getElementById('tapButton');
+        if (tapButton) {
+            // Remove existing listeners to avoid duplicates
+            tapButton.replaceWith(tapButton.cloneNode(true));
+            // Get the new button reference
+            const newTapButton = document.getElementById('tapButton');
+            newTapButton.addEventListener('click', handleTap);
+            newTapButton.addEventListener('touchstart', handleTap, { passive: false });
+        }
+    }
 };
 
 const renderHeader = () => {
@@ -634,11 +556,11 @@ const renderHeader = () => {
         <div class="flex justify-around text-center">
             <div><p class="text-2xl font-extrabold text-yellow-400">${formatNumber(gameState.coins)}</p><p class="text-xs text-gray-400">Funds 💰</p></div>
             <div><p class="text-2xl font-extrabold text-purple-400">${formatNumber(gameState.influenceTokens)}</p><p class="text-xs text-gray-400">Tokens 💎</p></div>
-            <div><p class="text-2xl font-extrabold text-green-400">${formatNumber(gameState.totalCampaignInfluence)}</p><p class="text-xs text-gray-400">Influence 📈</p></div>
+            <div><p class="text-2xl font-extrabold text-green-400">${formatNumber(calculateTCI(gameState))}</p><p class="text-xs text-gray-400">Influence 📈</p></div>
         </div>
         <div class="bg-slate-900/50 rounded-lg p-2 mt-3">
             <div class="flex justify-between items-center text-sm mb-2 px-1">
-                <div class="text-center"><p class="text-blue-400 font-bold">+${formatNumber(gameState.tapPower)}</p><p class="text-gray-400 text-xs">Tap Power</p></div>
+                <div class="text-center"><p class="text-blue-400 font-bold">+${formatNumber(calculateTapPower(gameState))}</p><p class="text-gray-400 text-xs">Tap Power</p></div>
                 <div class="text-center"><p class="text-green-400 font-bold">${formatNumber(pph)}/hr</p><p class="text-gray-400 text-xs">PPH</p></div>
                 <div class="text-center"><p class="text-purple-400 font-bold">${gameState.userCards.filter(c=>c.activated).length}</p><p class="text-gray-400 text-xs">Active</p></div>
             </div>
@@ -674,12 +596,12 @@ const renderTapScreen = () => {
     return `
     <div class="relative mb-8 mt-4">
         <button id="tapButton" class="w-[230px] h-[230px] rounded-full flex flex-col justify-center items-center text-white font-black text-4xl shadow-lg active:scale-95 transition-transform select-none ${isBoostActive ? 'boost-active' : ''}">
-            Tap! <span class="text-3xl mt-1">+${formatNumber(gameState.tapPower)}</span>
+            Tap! <span class="text-3xl mt-1">+${formatNumber(calculateTapPower(gameState))}</span>
         </button>
     </div>
     <div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-3 w-full max-w-sm mb-4">
         <div class="flex justify-between items-center">
-            <div><p class="font-bold text-lg">${gameState.streak} Day Streak</p><p class="text-xs text-yellow-300">Tap Power Bonus: +${STREAK_BONUS[gameState.streak]}%</p></div>
+            <div><p class="font-bold text-lg">${gameState.streak} Day Streak</p><p class="text-xs text-yellow-300">Tap Power Bonus: +${STREAK_BONUS[gameState.streak || 0]}%</p></div>
         </div>
     </div>
     <div class="w-full max-w-sm p-4 bg-slate-800/80 rounded-xl border border-slate-700/50">
@@ -693,103 +615,168 @@ const renderTapScreen = () => {
     `;
 };
 
-const renderCardsScreen = () => `
+// ✅ FIXED: renderCardsScreen with proper asset paths and functionality
+const renderCardsScreen = () => {
+    return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Candidate Cards</h2>
-    <div class="space-y-4">${GAME_CONFIG.candidates.map(candidate => {
-        const userCard = gameState.userCards.find(c => c.id === candidate.id);
-        const cardClass = userCard ? (userCard.activated ? 'border-green-400 bg-slate-800' : 'border-slate-600 bg-slate-800/70') : 'border-slate-700 bg-slate-800/50';
-        const upgradeCost = userCard ? candidate.bid * userCard.level * 1.5 : 0;
-        return `
-            <div class="p-4 rounded-xl border-2 relative ${cardClass}">
-                ${candidate.sponsored ? `<div class="absolute top-2 right-2 text-xs bg-yellow-500 text-black font-bold px-2 py-0.5 rounded-full">Sponsored</div>` : ''}
+    <div class="space-y-4">
+        ${GAME_CONFIG.candidates.map(candidate => {
+            const userCard = gameState.userCards.find(c => c.id === candidate.id);
+            const isActive = candidate.active;
+            const cardClass = userCard ? 
+                (userCard.activated ? 'border-green-400 bg-slate-800' : 'border-slate-600 bg-slate-800/70') : 
+                'border-slate-700 bg-slate-800/50';
+            const finalCardClass = isActive ? cardClass : 'border-slate-700 bg-slate-900/60 filter-grayscale';
+            const upgradeCost = userCard ? candidate.bid * userCard.level * 1.5 : 0;
+            
+            return `
+            <div class="p-4 rounded-xl border-2 relative ${finalCardClass}">
+                ${candidate.sponsored && isActive ? 
+                    `<div class="absolute top-2 right-2 text-xs bg-yellow-500 text-black font-bold px-2 py-0.5 rounded-full">Sponsored</div>` : 
+                    ''}
                 <div class="flex gap-4 items-start">
-                    <img src="${candidate.photo}" alt="${candidate.name}" class="w-20 h-20 rounded-full object-cover border-4 ${candidate.logoColor}" />
+                    <img src="${GITHUB_ASSETS_BASE_URL}photos/${candidate.photo}" alt="${candidate.name}" 
+                         class="w-20 h-20 rounded-full object-cover border-4 ${candidate.logoColor}" 
+                         onerror="this.src='https://picsum.photos/seed/${candidate.id}/100/100'" />
                     <div class="flex-1">
-                        <div class="flex justify-between"><h3 class="font-bold text-lg">${candidate.name}</h3>${userCard ? `<p class="font-bold text-yellow-400">Lv. ${userCard.level}</p>`: ''}</div>
+                        <div class="flex justify-between">
+                            <h3 class="font-bold text-lg">${candidate.name}</h3>
+                            ${userCard ? `<p class="font-bold text-yellow-400">Lv. ${userCard.level}</p>` : ''}
+                        </div>
                         <p class="text-sm text-gray-400">${GAME_CONFIG.parties[candidate.party]?.name || 'Unknown Party'}</p>
                         <p class="text-xs text-gray-300 mt-1">PPH: +${formatNumber(candidate.profitPerHour * (userCard ? userCard.level : 1))}</p>
                     </div>
                 </div>
                 <div class="flex justify-between mt-4 gap-2">
                     ${userCard ? `
-                        <button data-action="toggleActivateCard" data-id="${candidate.id}" class="w-1/2 py-2 rounded font-bold text-white ${userCard.activated ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'}">${userCard.activated ? 'Deactivate' : 'Activate'}</button>
-                        <button data-action="upgradeCard" data-id="${candidate.id}" class="w-1/2 bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" ${gameState.coins < upgradeCost ? 'disabled' : ''}>Upgrade (${formatNumber(upgradeCost)}💰)</button>
+                        <button data-action="toggleActivateCard" data-id="${candidate.id}" 
+                                class="w-1/2 py-2 rounded font-bold text-white ${userCard.activated ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'}">
+                            ${userCard.activated ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button data-action="upgradeCard" data-id="${candidate.id}" 
+                                class="w-1/2 bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white disabled:bg-gray-500" 
+                                ${!isActive || gameState.coins < upgradeCost ? 'disabled' : ''}>
+                            Upgrade (${formatNumber(upgradeCost)}💰)
+                        </button>
                     ` : `
-                        <button data-action="buyCard" data-id="${candidate.id}" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" ${!candidate.active || gameState.coins < candidate.bid ? 'disabled' : ''}>${candidate.active ? `Buy (${formatNumber(candidate.bid)}💰)` : 'Unavailable'}</button>
+                        <button data-action="buyCard" data-id="${candidate.id}" 
+                                class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" 
+                                ${!isActive || gameState.coins < candidate.bid ? 'disabled' : ''}>
+                            ${isActive ? `Buy (${formatNumber(candidate.bid)}💰)` : '<i class="fa fa-lock mr-2"></i> Unavailable'}
+                        </button>
                     `}
                 </div>
-                ${!candidate.active ? `<p class="text-xs text-red-400 mt-2">Card inactive. Contact admin to activate: ${ADMIN_CONTACT.telegram}</p>` : ''}
+                ${!isActive ? `<p class="text-xs text-red-400 mt-2 text-center">Card inactive. Contact admin to activate.</p>` : ''}
             </div>`;
-    }).join('')}</div>`;
+        }).join('')}
+    </div>`;
+};
 
-const renderMissionsScreen = () => `
+// ✅ FIXED: renderMissionsScreen with complete implementation
+const renderMissionsScreen = () => {
+    return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Daily Missions</h2>
-    <div class="space-y-3">${DAILY_MISSIONS.map(mission => {
-        const progress = gameState.missionProgress[mission.id]?.progress || 0;
-        const isCompleted = gameState.completedMissions.includes(mission.id);
-        const percent = isCompleted ? 100 : Math.min(100, (progress / mission.target) * 100);
-        return `
+    <div class="space-y-3">
+        ${DAILY_MISSIONS.map(mission => {
+            const progress = gameState.missionProgress[mission.id]?.progress || 0;
+            const isCompleted = gameState.completedMissions.includes(mission.id);
+            const percent = isCompleted ? 100 : Math.min(100, (progress / mission.target) * 100);
+            return `
             <div class="bg-slate-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}">
                 <div class="flex justify-between items-center mb-2">
                     <h4 class="font-bold text-white">${mission.title}</h4>
                     <span class="text-yellow-400 font-bold">+${formatNumber(mission.reward)} 💰</span>
                 </div>
                 <p class="text-sm text-gray-400 mb-3">${mission.description}</p>
-                <div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full" style="width: ${percent}%"></div></div>
-                <div class="text-right text-xs mt-1 text-gray-300">${isCompleted ? 'Completed' : `${formatNumber(progress)} / ${formatNumber(mission.target)}`}</div>
+                <div class="w-full bg-gray-700 rounded-full h-2.5">
+                    <div class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: ${percent}%"></div>
+                </div>
+                <div class="text-right text-xs mt-1 text-gray-300">
+                    ${isCompleted ? 'Completed' : `${formatNumber(progress)} / ${formatNumber(mission.target)}`}
+                </div>
             </div>`;
-    }).join('')}</div>`;
+        }).join('')}
+    </div>`;
+};
 
+// ✅ FIXED: renderMediaScreen with proper asset paths
 const renderMediaScreen = () => {
     const activeCandidates = GAME_CONFIG.candidates.filter(c => c.active);
     const activeParties = Object.entries(GAME_CONFIG.parties).filter(([id, p]) => p.active);
 
-    const candidateMedia = activeCandidates.map(candidate => `
+    const candidateMedia = activeCandidates.map(c => `
         <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
-             <img src="${candidate.photo}" alt="${candidate.name}" class="w-24 h-24 rounded-lg object-cover" />
+             <img src="${GITHUB_ASSETS_BASE_URL}photos/${c.photo}" alt="${c.name}" 
+                  class="w-24 h-24 rounded-lg object-cover"
+                  onerror="this.src='https://picsum.photos/seed/c${c.id}/100/100'" />
              <div class="flex-1">
-                <h3 class="font-bold text-lg">${candidate.name}</h3>
-                <p class="text-sm text-gray-400 mb-2">${candidate.bio}</p>
-                <button data-action="watchVideo" data-type="candidate" data-id="${candidate.id}" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm disabled:bg-gray-500" ${gameState.watchedVideos['c' + candidate.id] ? 'disabled' : ''}>
-                    ${gameState.watchedVideos['c' + candidate.id] ? 'Watched' : `Watch Video (+${formatNumber(candidate.videoReward)}💰)`}
+                <h3 class="font-bold text-lg">${c.name}</h3>
+                <p class="text-sm text-gray-400 mb-2">${c.bio || 'No biography available.'}</p>
+                <button data-action="watchVideo" data-type="candidate" data-id="${c.id}" 
+                        class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm disabled:bg-gray-500" 
+                        ${gameState.watchedVideos['c' + c.id] ? 'disabled' : ''}>
+                    ${gameState.watchedVideos['c' + c.id] ? 'Watched' : `Watch Video (+${formatNumber(c.videoReward)}💰)`}
                 </button>
              </div>
-        </div>
-    `).join('');
+        </div>`).join('');
 
-    const partyMedia = activeParties.map(([id, party]) => `
+    const partyMedia = activeParties.map(([id, p]) => `
          <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
-             <img src="${party.photo}" alt="${party.name}" class="w-24 h-24 rounded-lg object-cover" />
+             <img src="${GITHUB_ASSETS_BASE_URL}logos/${p.logo}" alt="${p.name}" 
+                  class="w-24 h-24 rounded-lg object-contain p-2 bg-slate-700"
+                  onerror="this.src='https://picsum.photos/seed/p${id}/100/100'" />
              <div class="flex-1">
-                <h3 class="font-bold text-lg">${party.name}</h3>
-                <p class="text-sm text-gray-400 mb-2">${party.description}</p>
-                <button data-action="watchVideo" data-type="party" data-id="${id}" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm disabled:bg-gray-500" ${gameState.watchedVideos['p' + id] ? 'disabled' : ''}>
-                    ${gameState.watchedVideos['p' + id] ? 'Watched' : `Watch Video (+${formatNumber(party.videoReward)}💰)`}
+                <h3 class="font-bold text-lg">${p.name}</h3>
+                <p class="text-sm text-gray-400 mb-2">${p.description}</p>
+                <button data-action="watchVideo" data-type="party" data-id="${id}" 
+                        class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm disabled:bg-gray-500" 
+                        ${gameState.watchedVideos['p' + id] ? 'disabled' : ''}>
+                    ${gameState.watchedVideos['p' + id] ? 'Watched' : `Watch Video (+${formatNumber(p.videoReward)}💰)`}
                 </button>
              </div>
-        </div>
-    `).join('');
+        </div>`).join('');
 
     return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Media</h2>
     <div class="space-y-4">
         <h3 class="font-bold text-lg text-blue-300">Candidates</h3>
-        ${candidateMedia || '<p class="text-gray-400 text-sm">No active candidate media.</p>'}
+        ${candidateMedia || '<p class="text-gray-400 text-sm">No active candidate media available.</p>'}
         <h3 class="font-bold text-lg text-blue-300 mt-4">Parties</h3>
-        ${partyMedia || '<p class="text-gray-400 text-sm">No active party media.</p>'}
+        ${partyMedia || '<p class="text-gray-400 text-sm">No active party media available.</p>'}
     </div>`;
 };
 
-const renderPartyScreen = () => `
+// ✅ FIXED: renderPartyScreen with proper functionality
+const renderPartyScreen = () => {
+    return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Political Parties</h2>
-    <div class="space-y-4">${Object.entries(GAME_CONFIG.parties).filter(([id, party]) => party.active).map(([id, party]) => {
-        const partyState = gameState.parties[id];
-        const xpPercent = (partyState.xp / (partyState.level * 500)) * 100;
-        const upgradeCost = partyState.level * 5;
-        return `
-            <div class="p-4 rounded-xl border border-slate-700 ${party.color}">
+    <div class="space-y-4">
+        ${Object.entries(GAME_CONFIG.parties).map(([id, party]) => {
+            if (!party.active) {
+                return `
+                <div class="p-4 rounded-xl border border-slate-700 bg-slate-900/60 filter-grayscale">
+                    <div class="flex gap-4 items-center">
+                        <img src="${GITHUB_ASSETS_BASE_URL}logos/${party.logo}" alt="${party.name}" 
+                             class="w-16 h-16 rounded-full object-contain p-1 border-4 border-slate-600 bg-slate-700"
+                             onerror="this.src='https://picsum.photos/seed/party${id}/80/80'" />
+                        <div class="flex-1">
+                            <h3 class="font-bold text-lg text-gray-500">${party.name}</h3>
+                            <p class="text-sm text-gray-600">This party is currently inactive.</p>
+                        </div>
+                    </div>
+                </div>`;
+            }
+            
+            const partyState = gameState.parties[id] || { level: 1, xp: 0 };
+            const xpPercent = (partyState.xp / (partyState.level * 500)) * 100;
+            const upgradeCost = partyState.level * 5;
+            
+            return `
+            <div class="p-4 rounded-xl border border-slate-700 ${party.color || 'bg-slate-800'}">
                 <div class="flex gap-4 items-center">
-                    <img src="${party.photo}" alt="${party.name}" class="w-16 h-16 rounded-full object-cover border-4 border-slate-400" />
+                    <img src="${GITHUB_ASSETS_BASE_URL}logos/${party.logo}" alt="${party.name}" 
+                         class="w-16 h-16 rounded-full object-contain p-1 border-4 border-slate-400 bg-slate-800"
+                         onerror="this.src='https://picsum.photos/seed/party${id}/80/80'" />
                     <div class="flex-1">
                         <h3 class="font-bold text-lg">${party.name}</h3>
                         <p class="text-sm text-gray-200">Level ${partyState.level}</p>
@@ -797,15 +784,28 @@ const renderPartyScreen = () => `
                 </div>
                 <p class="text-sm text-gray-200 my-3">${party.description}</p>
                 <div class="text-xs text-gray-200">XP: ${formatNumber(partyState.xp)} / ${formatNumber(partyState.level * 500)}</div>
-                <div class="w-full bg-gray-600 rounded-full h-2 mb-3"><div class="bg-green-500 h-2 rounded-full" style="width: ${xpPercent}%"></div></div>
+                <div class="w-full bg-gray-600 rounded-full h-2 mb-3">
+                    <div class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: ${xpPercent}%"></div>
+                </div>
                 <div class="flex gap-2">
-                    <button data-action="investParty" data-id="${id}" class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">Invest (1k💰)</button>
-                    <button data-action="upgradeParty" data-id="${id}" class="w-1/2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded disabled:bg-gray-500" ${gameState.influenceTokens < upgradeCost ? 'disabled' : ''}>Upgrade (${upgradeCost}💎)</button>
+                    <button data-action="investParty" data-id="${id}" 
+                            class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">
+                        Invest (1k💰)
+                    </button>
+                    <button data-action="upgradeParty" data-id="${id}" 
+                            class="w-1/2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded disabled:bg-gray-500" 
+                            ${gameState.influenceTokens < upgradeCost ? 'disabled' : ''}>
+                        Upgrade (${upgradeCost}💎)
+                    </button>
                 </div>
             </div>`;
-    }).join('') || '<p class="text-center text-gray-400">No active parties available.</p>'}</div>`;
+        }).join('')}
+    </div>`;
+};
 
-const renderStoreScreen = () => `
+// ✅ FIXED: renderStoreScreen with complete implementation
+const renderStoreScreen = () => {
+    return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Store</h2>
     <div class="space-y-4">
         <div>
@@ -816,7 +816,9 @@ const renderStoreScreen = () => `
                     <h4 class="font-bold text-white"><span class="text-2xl">${manager.icon}</span> ${manager.name}</h4>
                     <p class="text-sm text-gray-400">${manager.description}</p>
                 </div>
-                <button data-action="buyManager" data-id="${manager.id}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.managerCards.includes(manager.id) || gameState.coins < manager.cost ? 'disabled' : ''}>
+                <button data-action="buyManager" data-id="${manager.id}" 
+                        class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" 
+                        ${gameState.managerCards.includes(manager.id) || gameState.coins < manager.cost ? 'disabled' : ''}>
                     ${gameState.managerCards.includes(manager.id) ? 'Hired' : `Hire (${formatNumber(manager.cost)}💰)`}
                 </button>
             </div>`).join('')}
@@ -829,15 +831,18 @@ const renderStoreScreen = () => `
                     <h4 class="font-bold text-white"><span class="text-2xl">${boost.icon}</span> ${boost.name}</h4>
                     <p class="text-sm text-gray-400">${boost.duration > 0 ? `${boost.duration} seconds` : 'Instant effect'}</p>
                 </div>
-                <button data-action="activateBoost" data-id="${boost.id}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.coins < boost.cost ? 'disabled' : ''}>
+                <button data-action="activateBoost" data-id="${boost.id}" 
+                        class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" 
+                        ${gameState.coins < boost.cost ? 'disabled' : ''}>
                     Activate (${formatNumber(boost.cost)}💰)
                 </button>
             </div>`).join('')}
         </div>
     </div>`;
+};
 
+// ✅ FIXED: renderLeaderboardScreen with complete implementation
 const renderLeaderboardScreen = () => {
-    // Get leaderboard data from localStorage
     let leaderboardData = {};
     try {
         leaderboardData = JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}');
@@ -845,33 +850,20 @@ const renderLeaderboardScreen = () => {
         console.warn("Could not load leaderboard data", e);
     }
     
-    // Convert to array and sort by score
     const leaderboardArray = Object.values(leaderboardData).sort((a, b) => b.score - a.score);
-    
-    // Add current user if not in leaderboard
-    const currentUserInLeaderboard = leaderboardArray.find(u => u.username === (telegramUser?.username || gameState.telegramUsername));
-    if (!currentUserInLeaderboard) {
-        leaderboardArray.push({
-            username: telegramUser?.username || gameState.telegramUsername,
-            score: gameState.totalCampaignInfluence,
-            coins: gameState.coins,
-            totalTaps: gameState.totalTaps,
-            isCurrentUser: true
-        });
-    }
-    
-    // Take top 10
     const topPlayers = leaderboardArray.slice(0, 10);
     
     return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Leaderboard</h2>
-    <div class="space-y-2">${topPlayers.map((player, index) => `
-        <div class="flex items-center bg-slate-800 p-3 rounded-lg ${player.isCurrentUser ? 'border-2 border-blue-500' : ''}">
+    <div class="space-y-2">
+        ${topPlayers.map((player, index) => `
+        <div class="flex items-center bg-slate-800 p-3 rounded-lg ${player.username === (telegramUser?.username || gameState.telegramUsername) ? 'border-2 border-blue-500' : ''}">
             <div class="text-lg font-bold w-8 text-center text-gray-400">${index + 1}</div>
             <div class="font-bold flex-1">${player.username}</div>
             <div class="font-bold text-yellow-400">${formatNumber(player.score)} TCI</div>
         </div>
-    `).join('')}</div>
+        `).join('')}
+    </div>
     <div class="mt-4 p-4 bg-slate-800 rounded-lg">
         <h3 class="font-bold text-lg mb-2">Your Stats</h3>
         <div class="grid grid-cols-2 gap-2 text-sm">
@@ -897,13 +889,15 @@ const closeModal = () => {
     document.getElementById('modalContainer').innerHTML = '';
 };
 
-// --- ENHANCED ADMIN PANEL ---
+// ✅ FIXED: renderAdminPanelContent with complete implementation
 const renderAdminPanelContent = () => {
     const candidateListHtml = GAME_CONFIG.candidates.map(candidate => `
         <div class="flex items-center justify-between p-3 bg-slate-900 rounded-lg mb-2">
             <div class="flex-1">
                 <div class="flex items-center">
-                    <img src="${candidate.photo}" alt="${candidate.name}" class="w-10 h-10 rounded-full mr-3 object-cover">
+                    <img src="${GITHUB_ASSETS_BASE_URL}photos/${candidate.photo}" alt="${candidate.name}" 
+                         class="w-10 h-10 rounded-full mr-3 object-cover"
+                         onerror="this.src='https://picsum.photos/seed/c${candidate.id}/50/50'">
                     <div>
                         <span class="font-bold ${candidate.active ? 'text-green-400' : 'text-red-400'}">${candidate.name}</span>
                         <div class="text-xs text-gray-400">
@@ -914,21 +908,24 @@ const renderAdminPanelContent = () => {
                 </div>
             </div>
             <div class="flex space-x-2">
-                <button data-action="adminToggleActive" data-type="candidate" data-id="${candidate.id}" class="text-xs py-2 px-3 rounded font-bold ${candidate.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white">
+                <button data-action="adminToggleActive" data-type="candidate" data-id="${candidate.id}" 
+                        class="text-xs py-2 px-3 rounded font-bold ${candidate.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white">
                     ${candidate.active ? 'Deactivate' : 'Activate'}
                 </button>
-                <button data-action="adminToggleSponsor" data-id="${candidate.id}" class="text-xs py-2 px-3 rounded font-bold ${candidate.sponsored ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-600 hover:bg-gray-700'} text-white">
+                <button data-action="adminToggleSponsor" data-id="${candidate.id}" 
+                        class="text-xs py-2 px-3 rounded font-bold ${candidate.sponsored ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-600 hover:bg-gray-700'} text-white">
                     ${candidate.sponsored ? 'Unsponsor' : 'Sponsor'}
                 </button>
             </div>
-        </div>
-    `).join('');
+        </div>`).join('');
 
     const partyListHtml = Object.entries(GAME_CONFIG.parties).map(([id, party]) => `
          <div class="flex items-center justify-between p-3 bg-slate-900 rounded-lg mb-2">
             <div class="flex-1">
                 <div class="flex items-center">
-                    <span class="text-2xl mr-3">${party.logo}</span>
+                    <img src="${GITHUB_ASSETS_BASE_URL}logos/${party.logo}" alt="${party.name}" 
+                         class="w-10 h-10 rounded-full mr-3 object-contain bg-slate-700 p-1"
+                         onerror="this.src='https://picsum.photos/seed/p${id}/50/50'">
                     <div>
                         <span class="font-bold ${party.active ? 'text-green-400' : 'text-red-400'}">${party.name}</span>
                         <div class="text-xs text-gray-400">${party.active ? '🟢 Active' : '🔴 Inactive'}</div>
@@ -936,12 +933,12 @@ const renderAdminPanelContent = () => {
                 </div>
             </div>
             <div class="flex space-x-2">
-                <button data-action="adminToggleActive" data-type="party" data-id="${id}" class="text-xs py-2 px-3 rounded font-bold ${party.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white">
+                <button data-action="adminToggleActive" data-type="party" data-id="${id}" 
+                        class="text-xs py-2 px-3 rounded font-bold ${party.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white">
                     ${party.active ? 'Deactivate' : 'Activate'}
                 </button>
             </div>
-        </div>
-    `).join('');
+        </div>`).join('');
 
     const userInfoHtml = telegramUser ? `
         <div class="bg-green-900/30 p-4 rounded-lg mb-4">
@@ -1041,7 +1038,7 @@ const renderAdminPanelContent = () => {
     `;
 };
 
-// --- ENHANCED ACTION HANDLERS ---
+// ✅ FIXED: handleAction with complete implementations for all actions
 const handleAction = (e) => {
     const target = e.target.closest('[data-action]');
     if (!target) return;
@@ -1051,18 +1048,22 @@ const handleAction = (e) => {
         closeModal,
         buyCard: () => {
             const c = GAME_CONFIG.candidates.find(c => c.id == id);
-            if (c && gameState.coins >= c.bid) {
+            if (c && c.active && gameState.coins >= c.bid) {
                 gameState.coins -= c.bid;
-                gameState.userCards.push({ id: c.id, level: 1, activated: false });
+                gameState.userCards.push({ id: parseInt(id), level: 1, activated: false });
                 showMessage(`Hired ${c.name}!`, 'success');
                 checkAchievements();
                 updateAll();
+            } else if (!c.active) {
+                showMessage("This candidate is not active!", "error");
+            } else {
+                showMessage("Not enough coins!", "error");
             }
         },
         upgradeCard: () => {
-            const c = GAME_CONFIG.candidates.find(c => c.id == id);
             const uc = gameState.userCards.find(uc => uc.id == id);
-            if (c && uc) {
+            if(uc) {
+                const c = GAME_CONFIG.candidates.find(c => c.id == id);
                 const cost = c.bid * uc.level * 1.5;
                 if (gameState.coins >= cost) {
                     gameState.coins -= cost;
@@ -1070,18 +1071,21 @@ const handleAction = (e) => {
                     showMessage(`${c.name} upgraded to Lv.${uc.level}!`, 'success');
                     checkMissionProgress('level', uc.level);
                     updateAll();
+                } else {
+                    showMessage("Not enough coins!", "error");
                 }
             }
         },
         toggleActivateCard: () => {
             const uc = gameState.userCards.find(uc => uc.id == id);
-            if (uc) uc.activated = !uc.activated;
-            updateAll();
+            if (uc) {
+                uc.activated = !uc.activated;
+                showMessage(`${GAME_CONFIG.candidates.find(c => c.id == id)?.name} ${uc.activated ? 'activated' : 'deactivated'}!`, 'success');
+                updateAll();
+            }
         },
         watchVideo: () => {
-            const item = type === 'candidate' 
-                ? GAME_CONFIG.candidates.find(c => c.id == id)
-                : GAME_CONFIG.parties[id];
+            const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
             const watchId = (type === 'candidate' ? 'c' : 'p') + id;
             if (item && !gameState.watchedVideos[watchId]) {
                 const videoUrl = item.promoVideo.replace("watch?v=", "embed/");
@@ -1092,15 +1096,16 @@ const handleAction = (e) => {
                     <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" class="w-full mt-4 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded">Claim Reward & Close</button>
                 `;
                 renderModal(`${item.name} - Campaign Video`, content, false);
+            } else {
+                showMessage("You've already watched this video!", "info");
             }
         },
         claimVideoReward: () => {
-            const item = type === 'candidate' 
-                ? GAME_CONFIG.candidates.find(c => c.id == id)
-                : GAME_CONFIG.parties[id];
+            const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
             const watchId = (type === 'candidate' ? 'c' : 'p') + id;
             if (item && !gameState.watchedVideos[watchId]) {
                 gameState.coins += item.videoReward;
+                gameState.totalLifetimeCoins += item.videoReward;
                 gameState.watchedVideos[watchId] = true;
                 showMessage(`Watched video, +${formatNumber(item.videoReward)}💰!`, 'success');
                 closeModal();
@@ -1119,6 +1124,8 @@ const handleAction = (e) => {
                     showMessage(`${GAME_CONFIG.parties[id].name} leveled up to Lv.${partyState.level}!`, 'success');
                 }
                 updateAll();
+            } else {
+                showMessage("Not enough coins!", "error");
             }
         },
         upgradeParty: () => {
@@ -1129,41 +1136,53 @@ const handleAction = (e) => {
                 partyState.level++;
                 showMessage(`${GAME_CONFIG.parties[id].name} upgraded to Lv.${partyState.level}!`, 'success');
                 updateAll();
+            } else {
+                showMessage("Not enough influence tokens!", "error");
             }
         },
         buyManager: () => {
             const m = GAME_CONFIG.managers.find(m => m.id === id);
-            if(m && gameState.coins >= m.cost) {
+            if(m && gameState.coins >= m.cost && !gameState.managerCards.includes(id)) {
                 gameState.coins -= m.cost;
                 gameState.managerCards.push(id);
                 showMessage(`Hired ${m.name}!`, 'success');
                 updateAll();
+            } else if (gameState.managerCards.includes(id)) {
+                showMessage("You already hired this manager!", "info");
+            } else {
+                showMessage("Not enough coins!", "error");
             }
         },
         activateBoost: () => {
             const b = BOOSTS.find(b => b.id === id);
             if(b && gameState.coins >= b.cost) {
                 gameState.coins -= b.cost;
-                if(b.energy) gameState.energy = Math.min(ENERGY_MAX, gameState.energy + b.energy);
-                if(b.duration > 0) {
-                    gameState.activeBoosts.push({ id, endTime: Date.now() + b.duration * 1000, multiplier: b.multiplier });
+                if(b.energy) {
+                    gameState.energy = Math.min(ENERGY_MAX, gameState.energy + b.energy);
+                    showMessage(`${b.name} activated! Energy restored.`, 'success');
                 }
-                showMessage(`${b.name} activated!`, 'success');
+                if(b.duration > 0) {
+                    gameState.activeBoosts.push({ 
+                        id, 
+                        endTime: Date.now() + b.duration * 1000, 
+                        multiplier: b.multiplier 
+                    });
+                    showMessage(`${b.name} activated for ${b.duration} seconds!`, 'success');
+                }
                 updateAll();
+            } else {
+                showMessage("Not enough coins!", "error");
             }
         },
-        // Enhanced Admin Actions
         adminToggleActive: () => {
-            const collection = type === 'candidate' ? GAME_CONFIG.candidates : GAME_CONFIG.parties;
-            const item = type === 'candidate' ? collection.find(c => c.id == id) : collection[id];
+            const item = type === 'candidate' ? 
+                GAME_CONFIG.candidates.find(c => c.id == id) : 
+                GAME_CONFIG.parties[id];
             if (item) {
                 item.active = !item.active;
                 const action = item.active ? 'activated' : 'deactivated';
                 showMessage(`${item.name} ${action} successfully!`, 'success');
-                
-                // Save config changes to localStorage
                 saveConfigChanges();
-                
                 renderModal('Admin Panel', renderAdminPanelContent());
                 updateAll();
             }
@@ -1174,16 +1193,14 @@ const handleAction = (e) => {
                 c.sponsored = !c.sponsored;
                 const action = c.sponsored ? 'sponsored' : 'unsponsored';
                 showMessage(`${c.name} ${action} successfully!`, 'success');
-                
-                // Save config changes to localStorage
                 saveConfigChanges();
-                
                 renderModal('Admin Panel', renderAdminPanelContent());
                 updateAll();
             }
         },
         adminAddCoins: () => {
             gameState.coins += 10000;
+            gameState.totalLifetimeCoins += 10000;
             showMessage('Added 10,000 coins!', 'success');
             renderModal('Admin Panel', renderAdminPanelContent());
             updateAll();
@@ -1233,10 +1250,13 @@ const handleAction = (e) => {
         }
     };
 
-    actions[action]?.();
+    if (actions[action]) {
+        actions[action]();
+    } else {
+        console.warn('Unknown action:', action);
+    }
 };
 
-// --- ENHANCED TELEGRAM INTEGRATION ---
 const initTelegram = () => {
     if (window.Telegram && window.Telegram.WebApp) {
         const tg = window.Telegram.WebApp;
@@ -1245,24 +1265,12 @@ const initTelegram = () => {
         
         if (telegramUser) {
             console.log("Telegram user detected:", telegramUser);
-            // Store comprehensive Telegram user info
             gameState.telegramUsername = telegramUser.username || `user_${telegramUser.id}`;
             gameState.telegramId = telegramUser.id;
             gameState.telegramFirstName = telegramUser.first_name || '';
             gameState.telegramLastName = telegramUser.last_name || '';
-            
-            // Save immediately to ensure user data is stored
-            saveGameState();
         }
-        
-        // Set theme colors if available
-        if (tg.themeParams) {
-            document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#0f172a');
-            document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#ffffff');
-        }
-        
     } else {
-        // Fallback for testing outside Telegram
         console.log("Running outside Telegram, using test mode");
         telegramUser = { 
             id: Math.floor(Math.random() * 1000000), 
@@ -1278,16 +1286,24 @@ const initTelegram = () => {
     }
 };
 
-// --- INITIALIZATION ---
 const initGame = async () => {
-    // Load external configuration first
     await loadExternalConfig();
-    
-    // Then load game state
     loadGameState();
     initTelegram();
 
-    // Set up intervals and event listeners
+    // --- 🔒 ADMIN SECURITY CHECK ---
+    const adminButton = document.getElementById('adminToggle');
+    if ((telegramUser && telegramUser.id === YOUR_ADMIN_TELEGRAM_ID) || 
+        (YOUR_ADMIN_TELEGRAM_ID === 123456789 && !window.Telegram?.WebApp)) {
+        console.log("ADMIN ACCESS GRANTED");
+        adminButton.style.display = 'flex';
+    } else {
+        console.log("Standard user access. Admin panel hidden.");
+        adminButton.style.display = 'none';
+    }
+    // --- END SECURITY CHECK ---
+
+    // Energy regeneration interval
     setInterval(() => {
         if (!gameState) return;
         const now = Date.now();
@@ -1295,33 +1311,27 @@ const initGame = async () => {
         gameState.energy = Math.min(ENERGY_MAX, gameState.energy + timePassed * ENERGY_REGEN_RATE);
         gameState.lastEnergyUpdate = now;
         
-        const activeBoosts = gameState.activeBoosts.filter(b => b.endTime > now);
-        if (activeBoosts.length !== gameState.activeBoosts.length) {
-            gameState.activeBoosts = activeBoosts;
-            updateAll();
-        } else {
-            renderHeader();
-        }
+        // Filter expired boosts
+        gameState.activeBoosts = gameState.activeBoosts.filter(b => b.endTime > now);
+        renderHeader();
     }, 1000);
 
     // Auto-save every 30 seconds
     setInterval(saveGameState, 30000);
 
+    // Event delegation for all dynamic buttons
     document.body.addEventListener('click', (e) => {
         handleAction(e);
         const navButton = e.target.closest('[data-tab]');
         if (navButton) navigate(navButton.dataset.tab);
-        if (e.target.id === 'tapButton') handleTap(e);
     });
-    
-    document.body.addEventListener('touchstart', (e) => {
-        if (e.target.id === 'tapButton') handleTap(e);
-    }, { passive: false });
 
-    document.getElementById('adminToggle').addEventListener('click', () => {
+    // Admin button listener
+    adminButton.addEventListener('click', () => {
         renderModal('Admin Panel', renderAdminPanelContent());
     });
     
+    // Initialize the game
     navigate('tap');
     updateAll();
     document.getElementById('loadingIndicator').style.display = 'none';
