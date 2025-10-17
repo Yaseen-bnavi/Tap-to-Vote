@@ -56,8 +56,7 @@
         .nav-item.active { color: #3b82f6; background-color: #1e293b; }
         .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; }
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 1000; }
-        /* ✅ ADDED for locked cards */
-        .filter-grayscale { filter: grayscale(1); }
+        .filter-grayscale { filter: grayscale(1); opacity: 0.7; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
@@ -73,9 +72,6 @@
     </div>
 
     <div id="messageBox" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-[100]"></div>
-    
-    <!-- ✅ MODIFIED: Admin button is now hidden by default to prevent non-admins from seeing it -->
-    <button id="adminToggle" style="display: none;" class="fixed top-4 right-4 z-50 bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg"><i class="fa fa-cog"></i></button>
 
     <header id="header" class="w-full mb-4 p-4 bg-slate-800/80 rounded-xl shadow-2xl border border-slate-700/50 sticky top-4 z-30">
         <!-- Header content will be dynamically rendered by JS -->
@@ -101,16 +97,18 @@
 document.addEventListener('DOMContentLoaded', () => {
 
 // ==========================================
-// 🔒 ADMIN & ASSET CONFIGURATION
+// 🎯 GAME CONFIGURATION
 // ==========================================
-const YOUR_ADMIN_TELEGRAM_ID = "Mohammaed_Abdulhmaeed"; // <-- ⚠️ REPLACE WITH YOUR TELEGRAM ID
-
-// ✅ Base URL for your GitHub images. Assumes /photos/ and /logos/ folders exist.
 const GITHUB_ASSETS_BASE_URL = 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/main/';
+const CONFIG_URLS = {
+    parties: `${GITHUB_ASSETS_BASE_URL}config/parties.json`,
+    candidates: `${GITHUB_ASSETS_BASE_URL}config/candidates.json`,
+    managers: `${GITHUB_ASSETS_BASE_URL}config/managers.json`
+};
+
 // ==========================================
-
-
-// --- CONSTANTS & CONFIG (Original values maintained) ---
+// 🎮 GAME CONSTANTS
+// ==========================================
 const TCI_SCALING = { COINS: 10000, CARD_LEVEL: 10, PARTY_LEVEL: 50 };
 const ENERGY_MAX = 100;
 const ENERGY_REGEN_RATE = 1;
@@ -119,25 +117,6 @@ const STREAK_BONUS = [0, 5, 10, 15, 20, 25, 30, 40, 50, 75];
 const DAILY_GOAL = 100;
 const DAILY_REWARD_COINS = 5000;
 const DAILY_REWARD_TOKENS = 1;
-
-// ✅ Using the main branch for config files for easier updates
-const CONFIG_URLS = {
-    parties: `${GITHUB_ASSETS_BASE_URL}config/parties.json`,
-    candidates: `${GITHUB_ASSETS_BASE_URL}config/candidates.json`,
-    managers: `${GITHUB_ASSETS_BASE_URL}config/managers.json`
-};
-
-const ADMIN_CONTACT = {
-    telegram: '@campaign_admin',
-    email: 'admin@campaign.com',
-    phone: '+964 XXX XXX XXXX',
-    instructions: 'Contact us to activate your candidate or party card. Payment required for activation services.',
-    pricing: {
-        candidate: '50,000 IQD per month',
-        party: '100,000 IQD per month',
-        sponsorship: '200,000 IQD per month'
-    }
-};
 
 const ACHIEVEMENTS = [
     { id: 'taps1', type: 'taps', threshold: 100, title: "First Steps", description: "Reach 100 total taps" },
@@ -159,12 +138,18 @@ const BOOSTS = [
     { id: 'boost_energy', name: "Energy Refill", duration: 0, cost: 3000, energy: 50, icon: '🔋' },
 ];
 
+// ==========================================
+// 🎲 GAME STATE
+// ==========================================
 let GAME_CONFIG = { parties: {}, candidates: [], managers: [] };
 let gameState;
 let activeTab = 'tap';
 let messageTimeout;
 let telegramUser = null;
 
+// ==========================================
+// 🛠️ UTILITY FUNCTIONS
+// ==========================================
 const formatNumber = (num) => {
   if (isNaN(num) || num === null) return '0';
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
@@ -183,82 +168,87 @@ const showMessage = (text, type = 'info') => {
     messageTimeout = setTimeout(() => { messageBox.innerHTML = ''; }, 3000);
 };
 
+// ==========================================
+// 📁 CONFIGURATION LOADING
+// ==========================================
 const loadExternalConfig = async () => {
     try {
-        let persistedConfig = JSON.parse(localStorage.getItem('campaignConfig') || 'null');
-
-        const fetchAndMerge = async (url, key, type) => {
-            const response = await fetch(`${url}?v=${Date.now()}`);
-            if (!response.ok) throw new Error(`Failed to load ${key}`);
-            const freshData = await response.json();
-            GAME_CONFIG[key] = persistedConfig ? mergeConfigs(freshData, persistedConfig[key] || {}, type) : freshData;
-        };
-
-        await Promise.all([
-            fetchAndMerge(CONFIG_URLS.parties, 'parties', 'parties'),
-            fetchAndMerge(CONFIG_URLS.candidates, 'candidates', 'candidates'),
-            fetchAndMerge(CONFIG_URLS.managers, 'managers', 'managers')
+        console.log('Loading external configuration...');
+        
+        const [partiesResponse, candidatesResponse, managersResponse] = await Promise.all([
+            fetch(CONFIG_URLS.parties),
+            fetch(CONFIG_URLS.candidates),
+            fetch(CONFIG_URLS.managers)
         ]);
-        console.log('🎉 All external config loaded successfully!');
+
+        if (!partiesResponse.ok) throw new Error('Failed to load parties');
+        if (!candidatesResponse.ok) throw new Error('Failed to load candidates');
+        if (!managersResponse.ok) throw new Error('Failed to load managers');
+
+        GAME_CONFIG.parties = await partiesResponse.json();
+        GAME_CONFIG.candidates = await candidatesResponse.json();
+        GAME_CONFIG.managers = await managersResponse.json();
+        
+        console.log('✅ All external config loaded successfully!');
+        console.log(`📊 Loaded: ${Object.keys(GAME_CONFIG.parties).length} parties, ${GAME_CONFIG.candidates.length} candidates, ${GAME_CONFIG.managers.length} managers`);
+        
     } catch (error) {
         console.error('❌ Error loading external config:', error);
-        // Fallback to default config if loading fails
+        showMessage('Failed to load game data. Using default configuration.', 'error');
+        
+        // Fallback to default config
         GAME_CONFIG = {
             parties: {
-                p1: { name: "Sairoon Current", logo: 'party1.png', color: 'bg-red-700/80', description: "A cross-sectarian alliance.", photo: "party1.png", active: true, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
-                p2: { name: "Fatah Alliance", logo: 'party2.png', color: 'bg-green-700/80', description: "Coalition of Iran-backed parties.", photo: "party2.png", active: false, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 3000 },
+                p1: { 
+                    name: "Sairoon Current", 
+                    logo: "party1.png", 
+                    color: "bg-red-700/80", 
+                    description: "A cross-sectarian alliance.", 
+                    photo: "party1.png", 
+                    active: true, 
+                    promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", 
+                    videoReward: 3000 
+                }
             },
             candidates: [
-                { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 1000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: '⭐', photo: "candidate1.jpg", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 1000, bio: "Default candidate bio.", profitPerHour: 10, active: true, sponsored: false },
+                { 
+                    id: 1, 
+                    name: "Default Candidate", 
+                    party: "p1", 
+                    campaign: "Default Campaign", 
+                    baseBonus: 1, 
+                    bid: 1000, 
+                    maxLevel: 5, 
+                    logoColor: "border-blue-500", 
+                    policy: "Default policy.", 
+                    approval: 50, 
+                    logo: "⭐", 
+                    photo: "candidate1.jpg", 
+                    promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", 
+                    videoReward: 1000, 
+                    bio: "Default candidate bio.", 
+                    profitPerHour: 10, 
+                    active: true, 
+                    sponsored: false 
+                }
             ],
             managers: [
-                { id: 'm1', name: "Default Manager", icon: '📱', description: "Default manager description", effect: 1.2, cost: 5000 }
+                { 
+                    id: 'm1', 
+                    name: "Default Manager", 
+                    icon: '📱', 
+                    description: "Default manager description", 
+                    effect: 1.2, 
+                    cost: 5000 
+                }
             ]
         };
-        showMessage('Using default configuration', 'info');
     }
 };
 
-const mergeConfigs = (freshConfig, persistedConfig, configType) => {
-    if (configType === 'candidates') {
-        return freshConfig.map(freshCandidate => {
-            const persistedCandidate = Array.isArray(persistedConfig) ? persistedConfig.find(p => p.id === freshCandidate.id) : null;
-            return { 
-                ...freshCandidate, 
-                active: persistedCandidate?.active ?? freshCandidate.active,
-                sponsored: persistedCandidate?.sponsored ?? freshCandidate.sponsored
-            };
-        });
-    } else if (configType === 'parties') {
-        const merged = { ...freshConfig };
-        Object.keys(persistedConfig).forEach(key => {
-            if (merged[key]) {
-                merged[key] = { 
-                    ...merged[key], 
-                    active: persistedConfig[key]?.active ?? merged[key].active
-                };
-            }
-        });
-        return merged;
-    }
-    return freshConfig;
-};
-
-const saveConfigChanges = () => {
-    try {
-        const configToSave = {
-            parties: GAME_CONFIG.parties,
-            candidates: GAME_CONFIG.candidates,
-            managers: GAME_CONFIG.managers,
-            lastUpdated: Date.now()
-        };
-        localStorage.setItem('campaignConfig', JSON.stringify(configToSave));
-        console.log('✅ Config changes saved to localStorage');
-    } catch (e) {
-        console.error('❌ Could not save config changes to localStorage', e);
-    }
-};
-
+// ==========================================
+// 🎯 CORE GAME LOGIC
+// ==========================================
 const calculatePPH = (state) => {
     let totalPPH = 0;
     if (!state || !state.userCards) return 0;
@@ -340,24 +330,36 @@ const saveToLeaderboard = () => {
 };
 
 const createDefaultGameState = () => ({
-    coins: 1000, influenceTokens: 0, dailyTaps: 0, totalTaps: 0,
-    totalLifetimeCoins: 1000, userCards: [],
+    coins: 1000, 
+    influenceTokens: 0, 
+    dailyTaps: 0, 
+    totalTaps: 0,
+    totalLifetimeCoins: 1000, 
+    userCards: [],
     parties: Object.keys(GAME_CONFIG.parties).reduce((acc, partyId) => {
         acc[partyId] = { level: 1, xp: 0, multiplier: 1.05, totalInvestment: 0 };
         return acc;
     }, {}),
     lastDailyRewardDate: null, 
     userId: 'user_' + Math.random().toString(36).substr(2, 9),
-    watchedVideos: {}, managerCards: [], lastPlayTime: Date.now(),
-    achievements: [], energy: ENERGY_MAX, lastEnergyUpdate: Date.now(),
-    combo: 0, lastTapTime: 0, streak: 0,
-    lastLoginDate: null, activeBoosts: [], completedMissions: [],
+    watchedVideos: {}, 
+    managerCards: [], 
+    lastPlayTime: Date.now(),
+    achievements: [], 
+    energy: ENERGY_MAX, 
+    lastEnergyUpdate: Date.now(),
+    combo: 0, 
+    lastTapTime: 0, 
+    streak: 0,
+    lastLoginDate: null, 
+    activeBoosts: [], 
+    completedMissions: [],
     missionProgress: DAILY_MISSIONS.reduce((acc, m) => { acc[m.id] = { progress: 0 }; return acc; }, {}),
     telegramUsername: 'user_' + Math.random().toString(36).substr(2, 6),
     telegramId: null,
     telegramFirstName: null,
     telegramLastName: null,
-    appVersion: '1.5.0'
+    appVersion: '2.0.0'
 });
 
 const loadGameState = () => {
@@ -373,7 +375,6 @@ const loadGameState = () => {
     if (savedStateJSON) {
         try {
             const parsed = JSON.parse(savedStateJSON);
-            // Properly merge the state to preserve all properties
             initialState = { 
                 ...defaultState, 
                 ...parsed,
@@ -386,6 +387,7 @@ const loadGameState = () => {
         }
     }
     
+    // Calculate offline earnings
     const now = Date.now();
     const timeOfflineHours = (now - initialState.lastPlayTime) / (1000 * 3600);
     const pph = calculatePPH(initialState);
@@ -396,6 +398,7 @@ const loadGameState = () => {
         setTimeout(() => showMessage(`Welcome back! You earned ${formatNumber(offlineEarnings)} 💰 while offline.`, 'success'), 1000);
     }
     
+    // Daily reset logic
     const today = getTodayString();
     if (initialState.lastLoginDate !== today) {
         const yesterday = new Date();
@@ -442,6 +445,9 @@ const checkAchievements = () => {
     }
 };
 
+// ==========================================
+// 🎮 EVENT HANDLERS
+// ==========================================
 const handleTap = (e) => {
     e.preventDefault();
     if (gameState.energy < 1) {
@@ -454,7 +460,7 @@ const handleTap = (e) => {
     let tapValue = calculateTapPower(gameState);
     
     // Critical hit chance
-    const isCritical = Math.random() < 0.05; // 5% chance
+    const isCritical = Math.random() < 0.05;
     if (isCritical) tapValue *= 3;
     
     gameState.combo = (now - gameState.lastTapTime < COMBO_TIMEOUT) ? gameState.combo + 1 : 1;
@@ -511,6 +517,9 @@ const checkMissionProgress = (type, value) => {
     if(missionCompleted) updateAll();
 };
 
+// ==========================================
+// 🎨 RENDER FUNCTIONS
+// ==========================================
 const navigate = (tabName) => {
     activeTab = tabName;
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -539,9 +548,7 @@ const renderCurrentTab = () => {
     if (activeTab === 'tap') {
         const tapButton = document.getElementById('tapButton');
         if (tapButton) {
-            // Remove existing listeners to avoid duplicates
             tapButton.replaceWith(tapButton.cloneNode(true));
-            // Get the new button reference
             const newTapButton = document.getElementById('tapButton');
             newTapButton.addEventListener('click', handleTap);
             newTapButton.addEventListener('touchstart', handleTap, { passive: false });
@@ -615,7 +622,6 @@ const renderTapScreen = () => {
     `;
 };
 
-// ✅ FIXED: renderCardsScreen with proper asset paths and functionality
 const renderCardsScreen = () => {
     return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Candidate Cards</h2>
@@ -645,6 +651,7 @@ const renderCardsScreen = () => {
                         </div>
                         <p class="text-sm text-gray-400">${GAME_CONFIG.parties[candidate.party]?.name || 'Unknown Party'}</p>
                         <p class="text-xs text-gray-300 mt-1">PPH: +${formatNumber(candidate.profitPerHour * (userCard ? userCard.level : 1))}</p>
+                        <p class="text-xs text-gray-400 mt-1">${candidate.policy}</p>
                     </div>
                 </div>
                 <div class="flex justify-between mt-4 gap-2">
@@ -666,13 +673,12 @@ const renderCardsScreen = () => {
                         </button>
                     `}
                 </div>
-                ${!isActive ? `<p class="text-xs text-red-400 mt-2 text-center">Card inactive. Contact admin to activate.</p>` : ''}
+                ${!isActive ? `<p class="text-xs text-red-400 mt-2 text-center">This candidate is currently inactive. Contact admin for activation.</p>` : ''}
             </div>`;
         }).join('')}
     </div>`;
 };
 
-// ✅ FIXED: renderMissionsScreen with complete implementation
 const renderMissionsScreen = () => {
     return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Daily Missions</h2>
@@ -699,7 +705,6 @@ const renderMissionsScreen = () => {
     </div>`;
 };
 
-// ✅ FIXED: renderMediaScreen with proper asset paths
 const renderMediaScreen = () => {
     const activeCandidates = GAME_CONFIG.candidates.filter(c => c.active);
     const activeParties = Object.entries(GAME_CONFIG.parties).filter(([id, p]) => p.active);
@@ -746,13 +751,17 @@ const renderMediaScreen = () => {
     </div>`;
 };
 
-// ✅ FIXED: renderPartyScreen with proper functionality
 const renderPartyScreen = () => {
     return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Political Parties</h2>
     <div class="space-y-4">
         ${Object.entries(GAME_CONFIG.parties).map(([id, party]) => {
-            if (!party.active) {
+            const isActive = party.active;
+            const partyState = gameState.parties[id] || { level: 1, xp: 0 };
+            const xpPercent = (partyState.xp / (partyState.level * 500)) * 100;
+            const upgradeCost = partyState.level * 5;
+            
+            if (!isActive) {
                 return `
                 <div class="p-4 rounded-xl border border-slate-700 bg-slate-900/60 filter-grayscale">
                     <div class="flex gap-4 items-center">
@@ -766,10 +775,6 @@ const renderPartyScreen = () => {
                     </div>
                 </div>`;
             }
-            
-            const partyState = gameState.parties[id] || { level: 1, xp: 0 };
-            const xpPercent = (partyState.xp / (partyState.level * 500)) * 100;
-            const upgradeCost = partyState.level * 5;
             
             return `
             <div class="p-4 rounded-xl border border-slate-700 ${party.color || 'bg-slate-800'}">
@@ -803,7 +808,6 @@ const renderPartyScreen = () => {
     </div>`;
 };
 
-// ✅ FIXED: renderStoreScreen with complete implementation
 const renderStoreScreen = () => {
     return `
     <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Store</h2>
@@ -841,7 +845,6 @@ const renderStoreScreen = () => {
     </div>`;
 };
 
-// ✅ FIXED: renderLeaderboardScreen with complete implementation
 const renderLeaderboardScreen = () => {
     let leaderboardData = {};
     try {
@@ -889,156 +892,9 @@ const closeModal = () => {
     document.getElementById('modalContainer').innerHTML = '';
 };
 
-// ✅ FIXED: renderAdminPanelContent with complete implementation
-const renderAdminPanelContent = () => {
-    const candidateListHtml = GAME_CONFIG.candidates.map(candidate => `
-        <div class="flex items-center justify-between p-3 bg-slate-900 rounded-lg mb-2">
-            <div class="flex-1">
-                <div class="flex items-center">
-                    <img src="${GITHUB_ASSETS_BASE_URL}photos/${candidate.photo}" alt="${candidate.name}" 
-                         class="w-10 h-10 rounded-full mr-3 object-cover"
-                         onerror="this.src='https://picsum.photos/seed/c${candidate.id}/50/50'">
-                    <div>
-                        <span class="font-bold ${candidate.active ? 'text-green-400' : 'text-red-400'}">${candidate.name}</span>
-                        <div class="text-xs text-gray-400">
-                            ${candidate.active ? '🟢 Active' : '🔴 Inactive'} 
-                            ${candidate.sponsored ? ' | ⭐ Sponsored' : ''}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="flex space-x-2">
-                <button data-action="adminToggleActive" data-type="candidate" data-id="${candidate.id}" 
-                        class="text-xs py-2 px-3 rounded font-bold ${candidate.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white">
-                    ${candidate.active ? 'Deactivate' : 'Activate'}
-                </button>
-                <button data-action="adminToggleSponsor" data-id="${candidate.id}" 
-                        class="text-xs py-2 px-3 rounded font-bold ${candidate.sponsored ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-600 hover:bg-gray-700'} text-white">
-                    ${candidate.sponsored ? 'Unsponsor' : 'Sponsor'}
-                </button>
-            </div>
-        </div>`).join('');
-
-    const partyListHtml = Object.entries(GAME_CONFIG.parties).map(([id, party]) => `
-         <div class="flex items-center justify-between p-3 bg-slate-900 rounded-lg mb-2">
-            <div class="flex-1">
-                <div class="flex items-center">
-                    <img src="${GITHUB_ASSETS_BASE_URL}logos/${party.logo}" alt="${party.name}" 
-                         class="w-10 h-10 rounded-full mr-3 object-contain bg-slate-700 p-1"
-                         onerror="this.src='https://picsum.photos/seed/p${id}/50/50'">
-                    <div>
-                        <span class="font-bold ${party.active ? 'text-green-400' : 'text-red-400'}">${party.name}</span>
-                        <div class="text-xs text-gray-400">${party.active ? '🟢 Active' : '🔴 Inactive'}</div>
-                    </div>
-                </div>
-            </div>
-            <div class="flex space-x-2">
-                <button data-action="adminToggleActive" data-type="party" data-id="${id}" 
-                        class="text-xs py-2 px-3 rounded font-bold ${party.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white">
-                    ${party.active ? 'Deactivate' : 'Activate'}
-                </button>
-            </div>
-        </div>`).join('');
-
-    const userInfoHtml = telegramUser ? `
-        <div class="bg-green-900/30 p-4 rounded-lg mb-4">
-            <h3 class="font-bold text-green-300 mb-2">👤 Telegram User Info</h3>
-            <div class="space-y-1 text-sm">
-                <div><span class="text-gray-400">Username:</span> @${telegramUser.username || 'N/A'}</div>
-                <div><span class="text-gray-400">Name:</span> ${telegramUser.first_name || ''} ${telegramUser.last_name || ''}</div>
-                <div><span class="text-gray-400">ID:</span> ${telegramUser.id}</div>
-                <div><span class="text-gray-400">Language:</span> ${telegramUser.language_code || 'N/A'}</div>
-            </div>
-        </div>
-    ` : '';
-
-    return `
-        <div class="text-left max-h-[70vh] overflow-y-auto pr-2">
-            <!-- User Information -->
-            ${userInfoHtml}
-            
-            <!-- Contact Information -->
-            <div class="bg-blue-900/30 p-4 rounded-lg mb-4">
-                <h3 class="font-bold text-blue-300 mb-2">📞 Contact & Pricing</h3>
-                <div class="space-y-2 text-sm">
-                    <div><span class="text-gray-400">Telegram:</span> ${ADMIN_CONTACT.telegram}</div>
-                    <div><span class="text-gray-400">Email:</span> ${ADMIN_CONTACT.email}</div>
-                    <div><span class="text-gray-400">Phone:</span> ${ADMIN_CONTACT.phone}</div>
-                    <div class="mt-2 p-2 bg-yellow-900/30 rounded">
-                        <p class="text-yellow-300 font-bold mb-1">💰 Activation Pricing:</p>
-                        <p class="text-xs">Candidate: ${ADMIN_CONTACT.pricing.candidate}</p>
-                        <p class="text-xs">Party: ${ADMIN_CONTACT.pricing.party}</p>
-                        <p class="text-xs">Sponsorship: ${ADMIN_CONTACT.pricing.sponsorship}</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- About Section -->
-            <div class="bg-purple-900/30 p-4 rounded-lg mb-4">
-                <h3 class="font-bold text-purple-300 mb-2">ℹ️ About</h3>
-                <p class="text-sm text-gray-300 mb-2">Supreme Strategic Campaign Simulator - Iraq</p>
-                <p class="text-xs text-gray-400">Version: ${gameState.appVersion}</p>
-                <p class="text-xs text-gray-400 mt-2">${ADMIN_CONTACT.instructions}</p>
-            </div>
-            
-            <!-- Candidate Management -->
-            <div class="mb-4">
-                <h4 class="font-bold text-blue-400 mb-2 flex items-center">
-                    <i class="fa fa-users mr-2"></i> Candidate Management (${GAME_CONFIG.candidates.length})
-                </h4>
-                <div id="candidateActivationList" class="space-y-2">${candidateListHtml}</div>
-            </div>
-            
-            <hr class="my-4 border-slate-600">
-            
-            <!-- Party Management -->
-            <div class="mb-4">
-                <h4 class="font-bold text-green-400 mb-2 flex items-center">
-                    <i class="fa fa-flag mr-2"></i> Party Management (${Object.keys(GAME_CONFIG.parties).length})
-                </h4>
-                <div id="partyActivationList" class="space-y-2">${partyListHtml}</div>
-            </div>
-            
-            <hr class="my-4 border-slate-600">
-            
-            <!-- Admin Actions -->
-            <div class="mb-4">
-                <h4 class="font-bold text-yellow-400 mb-2">⚙️ Admin Actions</h4>
-                <div class="grid grid-cols-2 gap-2">
-                    <button data-action="adminAddCoins" class="bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-bold">
-                        Add 10K Coins
-                    </button>
-                    <button data-action="adminResetGame" class="bg-red-600 hover:bg-red-700 text-white py-2 rounded text-sm font-bold">
-                        Reset Game
-                    </button>
-                    <button data-action="adminExportData" class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded text-sm font-bold col-span-2">
-                        Export Game Data
-                    </button>
-                    <button data-action="adminResetConfig" class="bg-orange-600 hover:bg-orange-700 text-white py-2 rounded text-sm font-bold col-span-2">
-                        Reset Config to Default
-                    </button>
-                </div>
-            </div>
-
-            <!-- Game Statistics -->
-            <div class="bg-slate-900 p-3 rounded-lg">
-                <h4 class="font-bold text-gray-300 mb-2">📊 Game Stats</h4>
-                <div class="grid grid-cols-2 gap-1 text-xs">
-                    <div class="text-gray-400">Total Players:</div>
-                    <div class="text-right">${Object.keys(JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}')).length}</div>
-                    <div class="text-gray-400">Your TCI:</div>
-                    <div class="text-right">${formatNumber(gameState.totalCampaignInfluence)}</div>
-                    <div class="text-gray-400">Your Coins:</div>
-                    <div class="text-right">${formatNumber(gameState.coins)}</div>
-                    <div class="text-gray-400">Active Cards:</div>
-                    <div class="text-right">${gameState.userCards.filter(c => c.activated).length}</div>
-                </div>
-            </div>
-        </div>
-    `;
-};
-
-// ✅ FIXED: handleAction with complete implementations for all actions
+// ==========================================
+// ⚡ ACTION HANDLERS
+// ==========================================
 const handleAction = (e) => {
     const target = e.target.closest('[data-action]');
     if (!target) return;
@@ -1048,14 +904,22 @@ const handleAction = (e) => {
         closeModal,
         buyCard: () => {
             const c = GAME_CONFIG.candidates.find(c => c.id == id);
-            if (c && c.active && gameState.coins >= c.bid) {
+            if (!c) {
+                showMessage("Candidate not found!", "error");
+                return;
+            }
+            
+            if (!c.active) {
+                showMessage("This candidate is not active! Contact admin for activation.", "error");
+                return;
+            }
+            
+            if (gameState.coins >= c.bid) {
                 gameState.coins -= c.bid;
                 gameState.userCards.push({ id: parseInt(id), level: 1, activated: false });
                 showMessage(`Hired ${c.name}!`, 'success');
                 checkAchievements();
                 updateAll();
-            } else if (!c.active) {
-                showMessage("This candidate is not active!", "error");
             } else {
                 showMessage("Not enough coins!", "error");
             }
@@ -1173,80 +1037,6 @@ const handleAction = (e) => {
             } else {
                 showMessage("Not enough coins!", "error");
             }
-        },
-        adminToggleActive: () => {
-            const item = type === 'candidate' ? 
-                GAME_CONFIG.candidates.find(c => c.id == id) : 
-                GAME_CONFIG.parties[id];
-            if (item) {
-                item.active = !item.active;
-                const action = item.active ? 'activated' : 'deactivated';
-                showMessage(`${item.name} ${action} successfully!`, 'success');
-                saveConfigChanges();
-                renderModal('Admin Panel', renderAdminPanelContent());
-                updateAll();
-            }
-        },
-        adminToggleSponsor: () => {
-            const c = GAME_CONFIG.candidates.find(c => c.id == id);
-            if (c) {
-                c.sponsored = !c.sponsored;
-                const action = c.sponsored ? 'sponsored' : 'unsponsored';
-                showMessage(`${c.name} ${action} successfully!`, 'success');
-                saveConfigChanges();
-                renderModal('Admin Panel', renderAdminPanelContent());
-                updateAll();
-            }
-        },
-        adminAddCoins: () => {
-            gameState.coins += 10000;
-            gameState.totalLifetimeCoins += 10000;
-            showMessage('Added 10,000 coins!', 'success');
-            renderModal('Admin Panel', renderAdminPanelContent());
-            updateAll();
-        },
-        adminResetGame: () => {
-            if (confirm("Are you sure you want to reset the game? All progress will be lost!")) {
-                gameState = createDefaultGameState();
-                showMessage("Game reset successfully", 'success');
-                renderModal('Admin Panel', renderAdminPanelContent());
-                updateAll();
-            }
-        },
-        adminExportData: () => {
-            try {
-                const dataStr = JSON.stringify({
-                    gameState: gameState,
-                    config: GAME_CONFIG,
-                    leaderboard: JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}'),
-                    exportDate: new Date().toISOString()
-                }, null, 2);
-                const blob = new Blob([dataStr], {type: 'application/json'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `campaign-data-${getTodayString()}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-                showMessage('Game data exported successfully!', 'success');
-            } catch (e) {
-                showMessage('Failed to export data.', 'error');
-                console.error(e);
-            }
-        },
-        adminResetConfig: () => {
-            if (confirm("Are you sure you want to reset the configuration to default? This will remove all your activation changes and reload from the external source.")) {
-                try {
-                    localStorage.removeItem('campaignConfig');
-                    showMessage("Configuration reset successfully. Reloading...", 'success');
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1500);
-                } catch (e) {
-                    showMessage('Failed to reset configuration.', 'error');
-                    console.error(e);
-                }
-            }
         }
     };
 
@@ -1257,6 +1047,9 @@ const handleAction = (e) => {
     }
 };
 
+// ==========================================
+// 🤖 TELEGRAM INTEGRATION
+// ==========================================
 const initTelegram = () => {
     if (window.Telegram && window.Telegram.WebApp) {
         const tg = window.Telegram.WebApp;
@@ -1286,22 +1079,13 @@ const initTelegram = () => {
     }
 };
 
+// ==========================================
+// 🚀 GAME INITIALIZATION
+// ==========================================
 const initGame = async () => {
     await loadExternalConfig();
     loadGameState();
     initTelegram();
-
-    // --- 🔒 ADMIN SECURITY CHECK ---
-    const adminButton = document.getElementById('adminToggle');
-    if ((telegramUser && telegramUser.id === YOUR_ADMIN_TELEGRAM_ID) || 
-        (YOUR_ADMIN_TELEGRAM_ID === 123456789 && !window.Telegram?.WebApp)) {
-        console.log("ADMIN ACCESS GRANTED");
-        adminButton.style.display = 'flex';
-    } else {
-        console.log("Standard user access. Admin panel hidden.");
-        adminButton.style.display = 'none';
-    }
-    // --- END SECURITY CHECK ---
 
     // Energy regeneration interval
     setInterval(() => {
@@ -1324,11 +1108,6 @@ const initGame = async () => {
         handleAction(e);
         const navButton = e.target.closest('[data-tab]');
         if (navButton) navigate(navButton.dataset.tab);
-    });
-
-    // Admin button listener
-    adminButton.addEventListener('click', () => {
-        renderModal('Admin Panel', renderAdminPanelContent());
     });
     
     // Initialize the game
