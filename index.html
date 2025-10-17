@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <title>Supreme Strategic Campaign Simulator (Iraq)</title>
+    <!-- Tailwind via CDN for ease of use. For production, host locally. -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,67 +14,72 @@
         :root {
             --tg-theme-bg-color: #0f172a;
             --tg-theme-text-color: #f1f5f9;
+            --tg-theme-button-color: #3b82f6;
+            --tg-theme-button-text-color: #ffffff;
         }
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, var(--tg-theme-bg-color) 0%, #1e293b 70%, var(--tg-theme-bg-color) 100%);
             color: var(--tg-theme-text-color);
-            overscroll-behavior-y: contain;
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh */
             -webkit-tap-highlight-color: transparent;
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
         }
+        /* Tap Animation & Feedback */
         .tap-feedback {
             position: absolute; font-size: 2.2rem; font-weight: 900;
             color: #fcd34d; text-shadow: 0 2px 8px #000;
-            pointer-events: none; animation: floatup 0.9s ease-out forwards;
-            white-space: nowrap; z-index: 100;
+            pointer-events: none; animation: floatup 0.8s ease-out forwards;
+            white-space: nowrap; z-index: 100; will-change: transform, opacity;
         }
         @keyframes floatup {
-            0% { transform: translateY(0) scale(1.2); opacity: 1; }
-            100% { transform: translateY(-80px) scale(0.8); opacity: 0; }
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-100px) scale(1.2); opacity: 0; }
         }
         #tapButton {
-            width: 230px; height: 230px;
-            background: radial-gradient(circle at center, #3b82f6 0%, #1e40af 70%, #1e3a8a 100%);
-            border: 6px solid #fef3c7;
-            text-shadow: 0 4px 10px rgba(0, 0, 0, 0.9);
-            box-shadow: 0 15px 40px rgba(37, 99, 235, 0.7), 0 0 0 15px rgba(254, 243, 199, 0.2);
-            transition: transform 0.1s ease, box-shadow 0.1s ease;
-            touch-action: manipulation;
+            width: 240px; height: 240px;
+            background: radial-gradient(circle at center, var(--tg-theme-button-color) 0%, #1e40af 70%, #1e3a8a 100%);
+            border: 8px solid #fef3c7;
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.5), inset 0 5px 15px rgba(255,255,255,0.2);
+            transition: transform 0.05s ease; touch-action: manipulation;
+            position: relative; overflow: hidden;
         }
-        #tapButton.boost-active { animation: boostPulse 1s infinite; }
-        @keyframes boostPulse {
-            50% { box-shadow: 0 20px 60px rgba(59, 130, 246, 0.9), 0 0 0 20px rgba(254, 243, 199, 0.5); }
-        }
-        #tapButton:active { transform: scale(0.95); }
-        .nav-item.active { color: #3b82f6; background-color: #1e293b; }
-        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; }
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 1000; }
-        .hide { display: none; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        #tapButton:active { transform: scale(0.96); }
+        /* Visual Effects */
+        .filter-grayscale { filter: grayscale(100%); opacity: 0.7; }
+        .nav-item.active { color: #60a5fa; background: rgba(255,255,255,0.05); }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; backdrop-filter: blur(4px); }
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; max-height: 90vh; overflow-y: auto; }
+        .hide { display: none !important; }
+        .fade-in { animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="text-slate-100 p-4 pb-24 max-w-lg mx-auto min-h-screen">
+<body class="p-4 pb-28 max-w-md mx-auto min-h-screen relative">
 
-    <div id="loadingIndicator" class="fixed inset-0 bg-gray-900/90 z-[2000] flex justify-center items-center">
-        <!-- Loading spinner content remains the same -->
+    <!-- Loading Screen -->
+    <div id="loadingIndicator" class="fixed inset-0 bg-[#0f172a] z-[2000] flex flex-col justify-center items-center transition-opacity duration-500">
+        <div class="w-16 h-16 border-4 border-blue-500 border-t-yellow-400 rounded-full animate-spin mb-4"></div>
+        <p class="text-lg font-bold text-gray-300 animate-pulse">Connecting to HQ...</p>
     </div>
 
-    <div id="messageBox" class="fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-[100]"></div>
+    <!-- Toast Messages -->
+    <div id="messageBox" class="fixed top-4 left-1/2 -translate-x-1/2 w-[90%] max-w-sm z-[1500] pointer-events-none transition-all duration-300"></div>
     
-    <button id="adminToggle" class="fixed top-4 right-4 z-50 bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg"><i class="fa fa-cog"></i></button>
+    <!-- Admin Button - HIDDEN BY DEFAULT via inline style -->
+    <button id="adminToggle" style="display: none;" class="fixed top-20 right-4 z-50 bg-slate-800/90 border border-slate-600 text-white w-10 h-10 rounded-full items-center justify-center shadow-xl backdrop-blur-sm active:scale-90 transition-transform">
+        <i class="fa fa-lock-open text-yellow-400"></i>
+    </button>
 
-    <header id="header" class="w-full mb-4 p-4 bg-slate-800/80 rounded-xl shadow-2xl border border-slate-700/50 sticky top-4 z-30">
-        <!-- Header content will be dynamically rendered by JS -->
+    <!-- Sticky Header -->
+    <header id="header" class="w-full mb-4 p-3 bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-lg border border-slate-700/50 sticky top-2 z-30">
+        <!-- Content rendered by JS -->
     </header>
 
-    <main class="w-full flex-grow">
+    <!-- Main Content Area -->
+    <main class="w-full flex-grow relative">
         <div id="tap" class="tab-content fade-in"></div>
         <div id="cards" class="tab-content hide"></div>
         <div id="missions" class="tab-content hide"></div>
@@ -83,682 +89,617 @@
         <div id="leaderboard" class="tab-content hide"></div>
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto w-full flex justify-around p-2 border-t border-gray-700/50 rounded-t-xl z-40 bg-[#0f172a]">
-        <!-- Nav items will be dynamically rendered by JS -->
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto w-full flex justify-evenly px-2 py-3 border-t border-slate-800/80 bg-[#0f172a]/95 backdrop-blur-lg z-40 pb-safe">
+        <!-- Content rendered by JS -->
     </nav>
     
+    <!-- Modals -->
     <div id="modalContainer"></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-// --- CONSTANTS & CONFIG ---
-// **IMPROVEMENT**: Grouping constants for better organization.
-const TCI_SCALING = { COINS: 10000, CARD_LEVEL: 10, PARTY_LEVEL: 50 };
-const ENERGY_CONFIG = { MAX: 100, REGEN_RATE: 1 };
-const GAME_TIMERS = { COMBO_TIMEOUT: 2000, SAVE_INTERVAL: 30000, MAIN_TICK: 1000 };
-const STREAK_BONUS = [0, 5, 10, 15, 20, 25, 30, 40, 50, 75]; // Bonus in percentage
-const DAILY_GOAL = { TAPS: 100, REWARD_COINS: 5000, REWARD_TOKENS: 1 };
-const APP_VERSION = '1.2.0'; // **IMPROVEMENT**: Centralized version number.
+// ==========================================
+// 🔒 SECURITY CONFIGURATION
+// ==========================================
+// REPLACE THIS NUMBER with your personal Telegram User ID.
+// Get it from @userinfobot on Telegram.
+const YOUR_ADMIN_TELEGRAM_ID = 123456789; // <--- !!! REPLACE WITH YOUR REAL ID !!!
+// ==========================================
 
-// **IMPROVEMENT**: Using a more resilient and permanent link to the raw file.
+// --- CONSTANTS & GAME BALANCING ---
+const APP_VERSION = '1.3.0-biz';
+const CONSTANTS = {
+    ENERGY: { MAX: 500, REGEN: 3 }, // Regen per second
+    TCI_SCALE: { COINS: 50000, CARD_LVL: 25, PARTY_LVL: 100 },
+    TIMERS: { COMBO: 1500, SAVE: 15000, TICK: 1000 },
+    DAILY: { TAPS: 1000, COINS: 25000, TOKENS: 5 }
+};
+
+const STREAK_BONUS = [0, 5, 10, 20, 35, 50, 75, 100]; // Days 1-7+ (%)
+
+// GitHub Raw URLs for Config (Ensure "active": false is set in these files for your business model)
 const CONFIG_URLS = {
     parties: 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/main/config/parties.json',
     candidates: 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/main/config/candidates.json',
     managers: 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/main/config/managers.json'
 };
-// Admin contact information
-const ADMIN_CONTACT = {
-    telegram: '@campaign_admin',
-    email: 'admin@campaign.com',
-    phone: '+964 XXX XXX XXXX',
-    instructions: 'Contact us to activate your candidate or party card. Payment required for activation services.',
-    pricing: {
-        candidate: '50,000 IQD per month',
-        party: '100,000 IQD per month',
-        sponsorship: '200,000 IQD per month'
-    }
+
+// Admin Contact Info (Display in Admin Panel)
+const ADMIN_INFO = {
+    contact: '@campaign_admin_iq',
+    rates: { candidate: '50K IQD/mo', party: '100K IQD/mo', sponsor: '+50K IQD' }
 };
 
-// **IMPROVEMENT**: More descriptive achievement structure.
+// Static Game Data
 const ACHIEVEMENTS = [
-    { id: 'taps1', type: 'totalTaps', threshold: 100, title: "First Steps", description: "Reach 100 total taps", reward: 1000 },
-    { id: 'taps2', type: 'totalTaps', threshold: 1000, title: "Dedicated Campaigner", description: "Reach 1,000 total taps", reward: 5000 },
-    { id: 'coins1', type: 'totalLifetimeCoins', threshold: 10000, title: "Wealthy Backer", description: "Accumulate 10,000 coins", reward: 2000 },
-    { id: 'cards1', type: 'userCards', threshold: 3, title: "Building a Team", description: "Own 3 candidate cards", reward: 1 }, // reward is tokens
+    { id: 't1', type: 'totalTaps', thr: 1000, title: "Grassroots", rw: {c: 5000} },
+    { id: 'c1', type: 'totalLifetimeCoins', thr: 100000, title: "Fundraiser", rw: {t: 10} },
+    { id: 'u1', type: 'ownedCards', thr: 3, title: "Team Builder", rw: {c: 10000} }
 ];
 
 const DAILY_MISSIONS = [
-    { id: 1, type: 'dailyTaps', target: 50, reward: 1000, title: "Tap 50 Times", description: "Basic tapping mission" },
-    { id: 2, type: 'dailyTaps', target: 200, reward: 5000, title: "Tap 200 Times", description: "Advanced tapping mission" },
-    { id: 3, type: 'coinsEarnedToday', target: 10000, reward: 2000, title: "Earn 10,000 Funds", description: "Wealth accumulation" },
-    { id: 4, type: 'cardLevel', target: 3, reward: 3000, title: "Upgrade a Card to Lv.3", description: "Strengthen your team" },
+    { id: 'dm1', type: 'taps', target: 500, reward: 5000, desc: "Tap 500 times" },
+    { id: 'dm2', type: 'earn', target: 50000, reward: 10000, desc: "Earn 50K coins" }
 ];
 
 const BOOSTS = [
-    { id: 'boost_2x', name: "2x Multiplier", duration: 60, cost: 5000, multiplier: 2, icon: '⚡' },
-    { id: 'boost_energy', name: "Energy Refill", duration: 0, cost: 3000, energy: 50, icon: '🔋' },
+    { id: 'x2', name: "2x Power (60s)", cost: 10000, dur: 60, mult: 2, icon: '⚡' },
+    { id: 'full', name: "Full Energy", cost: 5000, energy: true, icon: '🔋' }
 ];
 
+// --- GLOBAL STATE ---
 let GAME_CONFIG = { parties: {}, candidates: [], managers: [] };
-
-// --- GAME STATE ---
-let gameState;
-let activeTab = 'tap';
-let messageTimeout;
+let gameState = null;
 let telegramUser = null;
+let activeTab = 'tap';
+let msgTimeout;
 
-// --- UTILS ---
-const formatNumber = (num) => {
-  if (isNaN(num) || num === null) return '0';
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
-  return Math.floor(num).toString();
+// --- DOM CACHE ---
+const $ = (id) => document.getElementById(id);
+const DOM = {
+    loader: $('loadingIndicator'), header: $('header'), nav: document.querySelector('nav'),
+    modals: $('modalContainer'), msg: $('messageBox'), adminBtn: $('adminToggle'),
+    tabs: { tap: $('tap'), cards: $('cards'), missions: $('missions'), media: $('media'), party: $('party'), store: $('store'), leaderboard: $('leaderboard') }
 };
 
-const getTodayString = () => new Date().toISOString().split('T')[0];
+// --- UTILITIES ---
+const fmt = (n) => {
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return Math.floor(n || 0).toString();
+};
+const todayStr = () => new Date().toISOString().split('T')[0];
 
-const showMessage = (text, type = 'info') => {
-    const messageBox = document.getElementById('messageBox');
-    if (!messageBox) return;
-    clearTimeout(messageTimeout);
-    const colors = {
-        success: 'bg-green-600',
-        error: 'bg-red-600',
-        info: 'bg-blue-600'
-    };
-    const color = colors[type] || colors.info;
-    messageBox.innerHTML = `<div class="${color} text-white text-center font-bold p-3 rounded-lg shadow-lg animate-pulse">${text}</div>`;
-    messageTimeout = setTimeout(() => { messageBox.innerHTML = ''; }, 3000);
+const notify = (txt, type = 'info') => {
+    clearTimeout(msgTimeout);
+    const bg = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+    DOM.msg.innerHTML = `<div class="${bg} text-white text-center font-bold py-2 px-4 rounded-lg shadow-lg transform translate-y-0 opacity-100 transition-all">${txt}</div>`;
+    DOM.msg.style.transform = 'translate(-50%, 0)';
+    msgTimeout = setTimeout(() => { DOM.msg.style.transform = 'translate(-50%, -20px)'; DOM.msg.innerHTML = ''; }, 2500);
 };
 
-// **IMPROVEMENT**: Centralized DOM element selection to avoid repeated lookups.
-const DOM_ELEMENTS = {
-    loadingIndicator: document.getElementById('loadingIndicator'),
-    header: document.getElementById('header'),
-    nav: document.querySelector('nav'),
-    modalContainer: document.getElementById('modalContainer'),
-    adminToggle: document.getElementById('adminToggle'),
-    tabs: {
-        tap: document.getElementById('tap'),
-        cards: document.getElementById('cards'),
-        missions: document.getElementById('missions'),
-        media: document.getElementById('media'),
-        party: document.getElementById('party'),
-        store: document.getElementById('store'),
-        leaderboard: document.getElementById('leaderboard')
-    }
-};
-
-// --- CONFIG LOADING ---
-const loadExternalConfig = async () => {
-    // Logic is solid, keeping it as is with minor logging improvements.
+// --- CONFIG & STATE MANAGEMENT ---
+const loadConfig = async () => {
     try {
-        console.log('Loading external configuration...');
-        const persistedConfig = JSON.parse(localStorage.getItem('campaignConfig') || 'null');
+        // 1. Load local overrides (Admin activations)
+        const local = JSON.parse(localStorage.getItem('dss_config_overrides') || '{}');
         
-        const fetchAndMerge = async (url, key) => {
-            const response = await fetch(`${url}?v=${Date.now()}`); // **IMPROVEMENT**: Cache-busting
-            if (!response.ok) throw new Error(`Failed to load ${key}: ${response.status}`);
-            const freshData = await response.json();
-            GAME_CONFIG[key] = persistedConfig ? mergeConfigs(freshData, persistedConfig[key], key) : freshData;
-            console.log(`✅ ${key} config loaded.`);
+        // 2. Fetch remote data
+        const fetcher = async (url) => {
+            const res = await fetch(`${url}?v=${Date.now()}`); // Cache bust
+            return res.ok ? res.json() : null;
         };
-        
-        await Promise.all([
-            fetchAndMerge(CONFIG_URLS.parties, 'parties'),
-            fetchAndMerge(CONFIG_URLS.candidates, 'candidates'),
-            fetchAndMerge(CONFIG_URLS.managers, 'managers')
+
+        const [p, c, m] = await Promise.all([
+            fetcher(CONFIG_URLS.parties),
+            fetcher(CONFIG_URLS.candidates),
+            fetcher(CONFIG_URLS.managers)
         ]);
-        
-        console.log('🎉 All external config loaded successfully!');
-    } catch (error) {
-        console.error('❌ Error loading external config:', error);
-        // Fallback logic remains the same, it's a good safeguard.
-    }
+
+        // 3. Merge: Remote Data + Local Admin Overrides
+        if (c) GAME_CONFIG.candidates = c.map(cand => ({ ...cand, ...(local.candidates?.[cand.id] || {}) }));
+        if (p) GAME_CONFIG.parties = Object.entries(p).reduce((acc, [k, v]) => {
+            acc[k] = { ...v, ...(local.parties?.[k] || {}) }; return acc;
+        }, {});
+        if (m) GAME_CONFIG.managers = m;
+
+    } catch (e) { console.error("Config load error", e); notify("Network error. Using cached config.", 'error'); }
 };
 
-const mergeConfigs = (fresh, persisted, type) => {
-    if (!persisted) return fresh;
-    if (type === 'candidates') {
-        return fresh.map(freshItem => ({
-            ...freshItem,
-            ...(persisted.find(p => p.id === freshItem.id) || {})
-        }));
-    }
-    if (type === 'parties') {
-        Object.keys(fresh).forEach(key => {
-            if (persisted[key]) {
-                fresh[key].active = persisted[key].active;
-            }
-        });
-        return fresh;
-    }
-    return fresh;
+const saveAdminOverrides = () => {
+    // Saves ONLY activation/sponsor status to localStorage
+    const overrides = {
+        candidates: GAME_CONFIG.candidates.reduce((acc, c) => {
+            if(c.active || c.sponsored) acc[c.id] = { active: c.active, sponsored: c.sponsored };
+            return acc;
+        }, {}),
+        parties: Object.entries(GAME_CONFIG.parties).reduce((acc, [k, v]) => {
+            if(v.active) acc[k] = { active: v.active };
+            return acc;
+        }, {})
+    };
+    localStorage.setItem('dss_config_overrides', JSON.stringify(overrides));
 };
 
-const saveConfigChanges = () => {
-    try {
-        const configToSave = {
-            parties: GAME_CONFIG.parties,
-            candidates: GAME_CONFIG.candidates.map(c => ({ id: c.id, active: c.active, sponsored: c.sponsored })),
-            managers: GAME_CONFIG.managers
-        };
-        localStorage.setItem('campaignConfig', JSON.stringify(configToSave));
-        console.log('✅ Config changes saved to localStorage');
-    } catch (e) {
-        console.error('❌ Could not save config changes to localStorage', e);
-    }
-};
-
-// --- CORE LOGIC ---
-const calculatePPH = (state) => {
-    if (!state?.userCards) return 0;
-    const totalPPH = state.userCards.reduce((acc, card) => {
-        if (!card.activated) return acc;
-        const candidate = GAME_CONFIG.candidates.find(c => c.id === card.id);
-        if (!candidate) return acc;
-        
-        let profit = candidate.profitPerHour * card.level;
-        const managerMultiplier = state.managerCards.reduce((mult, managerId) => {
-            const manager = GAME_CONFIG.managers.find(m => m.id === managerId);
-            return mult * (manager?.effect || 1);
-        }, 1);
-        
-        return acc + (profit * managerMultiplier);
-    }, 0);
-    return Math.floor(totalPPH);
-};
-
-const calculateTCI = (state) => {
-    if (!state) return 0;
-    const coinsTCI = (state.totalLifetimeCoins || 0) / TCI_SCALING.COINS;
-    const cardsTCI = (state.userCards?.reduce((acc, card) => acc + card.level, 0) || 0) * TCI_SCALING.CARD_LEVEL;
-    const partiesTCI = (Object.values(state.parties)?.reduce((acc, party) => acc + party.level, 0) || 0) * TCI_SCALING.PARTY_LEVEL;
-    return Math.floor(coinsTCI + cardsTCI + partiesTCI);
-};
-
-const calculateTapPower = (state) => {
-    if (!state) return 1;
-    let basePower = 1 + (state.userCards?.reduce((acc, card) => {
-        if (!card.activated) return acc;
-        const c = GAME_CONFIG.candidates.find(c => c.id === card.id);
-        return acc + (c ? c.baseBonus * card.level : 0);
-    }, 0) || 0);
-    
-    let partyMultiplier = 1; // Simplified for now
-    const boostMultiplier = state.activeBoosts?.reduce((acc, b) => acc * (b.multiplier || 1), 1) || 1;
-    const streakBonus = 1 + (STREAK_BONUS[state.streak || 0] / 100);
-
-    return Math.floor(basePower * partyMultiplier * boostMultiplier * streakBonus);
-};
-
-// --- STATE MANAGEMENT ---
-const saveGameState = () => {
-    if(!gameState) return;
-    try {
-        gameState.lastPlayTime = Date.now();
-        localStorage.setItem('campaignSimulatorSave', JSON.stringify(gameState));
-    } catch (e) {
-        console.warn("Could not save game state.", e);
-    }
-};
-
-const createDefaultGameState = () => ({
-    coins: 1000, influenceTokens: 0, dailyTaps: 0, totalTaps: 0,
-    totalLifetimeCoins: 1000, coinsEarnedToday: 0, userCards: [],
-    parties: Object.keys(GAME_CONFIG.parties).reduce((acc, partyId) => {
-        acc[partyId] = { id: partyId, level: 1, xp: 0 }; return acc;
-    }, {}),
-    lastDailyRewardDate: null, 
-    userId: 'user_' + Date.now().toString(36),
-    watchedVideos: {}, managerCards: [], lastPlayTime: Date.now(),
-    achievements: [], energy: ENERGY_CONFIG.MAX, lastEnergyUpdate: Date.now(),
-    combo: 0, lastTapTime: 0, streak: 1,
-    lastLoginDate: getTodayString(), activeBoosts: [], completedMissions: [],
-    missionProgress: DAILY_MISSIONS.reduce((acc, m) => { acc[m.id] = { progress: 0 }; return acc; }, {}),
-    telegram: { id: null, username: null, firstName: null, lastName: null },
-    appVersion: APP_VERSION
+const defaultState = () => ({
+    coins: 5000, tokens: 0, totalTaps: 0, lifeCoins: 5000,
+    cards: {}, // {id: level}
+    party: {}, // {id: {lvl, xp}}
+    energy: CONSTANTS.ENERGY.MAX, lastEup: Date.now(),
+    combo: 0, lastTap: 0, streak: 1, lastLog: todayStr(),
+    daily: { taps: 0, earned: 0, claimed: false },
+    missions: {}, // {id: progress}
+    completedIds: [], watched: [], boosts: [], managers: [],
+    ver: APP_VERSION, user: null, lastSave: Date.now()
 });
 
-const loadGameState = () => {
-    let savedStateJSON;
+const loadState = () => {
     try {
-        savedStateJSON = localStorage.getItem('campaignSimulatorSave');
-    } catch (e) { console.warn("localStorage is unavailable.", e); }
+        const raw = localStorage.getItem('dss_gamestate');
+        gameState = raw ? { ...defaultState(), ...JSON.parse(raw) } : defaultState();
+    } catch { gameState = defaultState(); }
 
-    const defaultState = createDefaultGameState();
-    let initialState = defaultState;
-    if (savedStateJSON) {
-        try {
-            initialState = { ...defaultState, ...JSON.parse(savedStateJSON) };
-        } catch (e) { console.error("Failed to parse saved state.", e); }
-    }
-    
-    // Offline earnings
-    const timeOfflineHours = (Date.now() - initialState.lastPlayTime) / 3600000;
-    const pph = calculatePPH(initialState);
-    const offlineEarnings = Math.min(Math.floor(pph * timeOfflineHours), pph * 24); // Cap at 24 hours
-    if (offlineEarnings > 0) {
-        initialState.coins += offlineEarnings;
-        initialState.totalLifetimeCoins += offlineEarnings;
-        setTimeout(() => showMessage(`Welcome back! You earned ${formatNumber(offlineEarnings)} 💰 offline.`, 'success'), 1500);
-    }
-    
-    // Daily reset logic
-    const today = getTodayString();
-    if (initialState.lastLoginDate !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        initialState.streak = initialState.lastLoginDate === yesterday.toISOString().split('T')[0]
-            ? Math.min(initialState.streak + 1, STREAK_BONUS.length - 1)
-            : 1;
-        initialState.lastLoginDate = today;
-        initialState.dailyTaps = 0;
-        initialState.coinsEarnedToday = 0;
-        initialState.completedMissions = [];
-        initialState.missionProgress = DAILY_MISSIONS.reduce((acc, m) => { acc[m.id] = { progress: 0 }; return acc; }, {});
+    // Process Offline & Daily Reset
+    const now = Date.now();
+    const pph = calcPPH();
+    const hrs = (now - gameState.lastSave) / 36e5;
+    if (hrs > 0.1 && pph > 0) {
+        const earn = Math.min(hrs, 12) * pph; // Max 12h offline
+        gameState.coins += earn; gameState.lifeCoins += earn;
+        setTimeout(() => notify(`Offline income: +${fmt(earn)}💰`, 'success'), 1000);
     }
 
-    gameState = initialState;
-    gameState.appVersion = APP_VERSION;
+    if (gameState.lastLog !== todayStr()) {
+        gameState.streak = (new Date(gameState.lastLog).getTime() > now - 1.8e8) ? Math.min(gameState.streak + 1, STREAK_BONUS.length) : 1;
+        gameState.lastLog = todayStr();
+        gameState.daily = { taps: 0, earned: 0, claimed: false };
+        gameState.missions = {};
+    }
 };
 
-// --- GAME LOOP & UPDATES ---
-const mainTick = () => {
+const saveState = () => {
     if (!gameState) return;
-    const now = Date.now();
+    gameState.lastSave = Date.now();
+    gameState.tci = calcTCI(); // Pre-calc for leaderboard
+    localStorage.setItem('dss_gamestate', JSON.stringify(gameState));
+};
+
+// --- CALCULATIONS ---
+const calcTap = () => {
+    let base = 1 + Object.entries(gameState.cards).reduce((acc, [id, lvl]) => {
+        const c = GAME_CONFIG.candidates.find(x => x.id == id);
+        return acc + (c?.active ? (c.baseBonus * lvl) : 0);
+    }, 0);
     
-    // Regenerate energy
-    const timePassed = (now - gameState.lastEnergyUpdate) / 1000;
-    const newEnergy = Math.min(ENERGY_CONFIG.MAX, gameState.energy + timePassed * ENERGY_CONFIG.REGEN_RATE);
-    if (Math.floor(newEnergy) > Math.floor(gameState.energy)) {
-        gameState.energy = newEnergy;
-        updateEnergyBar();
-    }
-    gameState.lastEnergyUpdate = now;
-
-    // Check for expired boosts
-    const activeBoosts = gameState.activeBoosts.filter(b => b.endTime > now);
-    if (activeBoosts.length !== gameState.activeBoosts.length) {
-        gameState.activeBoosts = activeBoosts;
-        updateTapScreen(); // Recalculate tap power visual
-    }
+    const boost = gameState.boosts.reduce((acc, b) => acc * b.mult, 1);
+    const streak = 1 + (STREAK_BONUS[gameState.streak-1] || 0) / 100;
+    return Math.floor(base * boost * streak);
 };
 
-const updateAllUI = () => {
-    updateHeader();
-    renderCurrentTab();
+const calcPPH = () => {
+    let base = Object.entries(gameState.cards).reduce((acc, [id, lvl]) => {
+        const c = GAME_CONFIG.candidates.find(x => x.id == id);
+        return acc + (c?.active ? (c.profitPerHour * lvl) : 0);
+    }, 0);
+    const mMult = gameState.managers.reduce((acc, mid) => acc * (GAME_CONFIG.managers.find(m=>m.id==mid)?.effect || 1), 1);
+    return Math.floor(base * mMult);
 };
 
-const checkAchievements = () => {
-    ACHIEVEMENTS.forEach(ach => {
-        if (gameState.achievements.includes(ach.id)) return;
-        
-        let conditionMet = false;
-        if (ach.type === 'userCards' && gameState.userCards.length >= ach.threshold) conditionMet = true;
-        else if (gameState[ach.type] >= ach.threshold) conditionMet = true;
-
-        if (conditionMet) {
-            gameState.achievements.push(ach.id);
-            if (ach.reward > 100) gameState.coins += ach.reward; else gameState.influenceTokens += ach.reward;
-            const content = `<div class="text-center"><div class="text-6xl mb-2">🏆</div><p class="text-gray-300">${ach.description}</p><p class="font-bold text-yellow-400 mt-2">+${formatNumber(ach.reward)} ${ach.reward > 100 ? '💰' : '💎'}</p></div>`;
-            renderModal(`Achievement: ${ach.title}`, content);
-        }
-    });
+const calcTCI = () => {
+    const c = gameState.lifeCoins / CONSTANTS.TCI_SCALE.COINS;
+    const l = Object.values(gameState.cards).reduce((a,b)=>a+b,0) * CONSTANTS.TCI_SCALE.CARD_LVL;
+    return Math.floor(c + l);
 };
 
-// --- EVENT HANDLERS ---
+// --- GAME LOOP ---
+const loop = () => {
+    const now = Date.now();
+    // Energy
+    const dt = (now - gameState.lastEup) / 1000;
+    gameState.energy = Math.min(CONSTANTS.ENERGY.MAX, gameState.energy + dt * CONSTANTS.ENERGY.REGEN);
+    gameState.lastEup = now;
+
+    // Boosts
+    gameState.boosts = gameState.boosts.filter(b => b.end > now);
+    
+    requestAnimationFrame(renderUIFast);
+};
+
+// --- ACTIONS ---
 const handleTap = (e) => {
-    e.preventDefault();
     if (gameState.energy < 1) return;
-
     const now = Date.now();
-    gameState.energy -= 1;
-    
-    gameState.combo = (now - gameState.lastTapTime < GAME_TIMERS.COMBO_TIMEOUT) ? gameState.combo + 1 : 1;
-    gameState.lastTapTime = now;
-    
-    const tapValue = calculateTapPower(gameState);
+    const isTouch = e.type === 'touchstart';
+    if(isTouch) e.preventDefault();
 
-    // Visual feedback
-    const { clientX, clientY } = e.touches ? e.touches[0] : e;
-    const feedback = document.createElement('div');
-    feedback.className = 'tap-feedback';
-    feedback.textContent = `+${formatNumber(tapValue)}`;
-    feedback.style.left = `${clientX - 25}px`;
-    feedback.style.top = `${clientY - 45}px`;
-    document.body.appendChild(feedback);
-    setTimeout(() => feedback.remove(), 900);
+    gameState.energy--;
+    gameState.combo = (now - gameState.lastTap < CONSTANTS.TIMERS.COMBO) ? gameState.combo + 1 : 1;
+    gameState.lastTap = now;
 
-    // Update state
-    gameState.coins += tapValue;
-    gameState.totalTaps += 1;
-    gameState.dailyTaps += 1;
-    gameState.coinsEarnedToday += tapValue;
-    gameState.totalLifetimeCoins += tapValue;
-    
-    // Check progress
-    checkMissionProgress('dailyTaps', 1);
-    checkMissionProgress('coinsEarnedToday', tapValue);
-    
-    if (gameState.dailyTaps === DAILY_GOAL.TAPS && getTodayString() !== gameState.lastDailyRewardDate) {
-        gameState.coins += DAILY_GOAL.REWARD_COINS;
-        gameState.influenceTokens += DAILY_GOAL.REWARD_TOKENS;
-        gameState.lastDailyRewardDate = getTodayString();
-        showMessage(`Daily Goal! +${formatNumber(DAILY_GOAL.REWARD_COINS)}💰 & +${DAILY_GOAL.REWARD_TOKENS}💎`, 'success');
-    }
-    
-    checkAchievements();
-    
-    // **IMPROVEMENT**: More targeted UI updates for better performance.
-    updateCoinDisplay();
-    updateEnergyBar();
-    updateTapScreen();
+    const power = calcTap();
+    const gain = power * (1 + Math.min(gameState.combo, 50) * 0.02); // Slight combo bonus
+    const finalGain = Math.floor(gain);
+
+    gameState.coins += finalGain;
+    gameState.lifeCoins += finalGain;
+    gameState.totalTaps++;
+    gameState.daily.taps++;
+    gameState.daily.earned += finalGain;
+
+    // UX
+    spawnFeedback(e, finalGain);
+    const btn = $('tapButton');
+    btn.style.transform = 'scale(0.95)';
+    setTimeout(() => btn.style.transform = 'scale(1)', 50);
+
+    checkProgression();
 };
 
-const checkMissionProgress = (type, value) => {
-    let missionCompleted = false;
-    DAILY_MISSIONS.forEach(mission => {
-        if (gameState.completedMissions.includes(mission.id)) return;
-        
-        const progress = gameState.missionProgress[mission.id];
-        let completed = false;
+const spawnFeedback = (e, amt) => {
+    const p = e.touches?.[0] || e;
+    const el = document.createElement('div');
+    el.className = 'tap-feedback font-black';
+    el.innerHTML = `+${amt}`;
+    el.style.left = `${p.clientX + (Math.random()*20-10)}px`;
+    el.style.top = `${p.clientY}px`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 800);
+};
 
-        if (mission.type === type) {
-            progress.progress = (progress.progress || 0) + value;
-            if (progress.progress >= mission.target) completed = true;
-        } else if (mission.type === 'cardLevel' && type === 'cardLevel') {
-             if (value >= mission.target) completed = true;
-        }
-        
-        if(completed) {
-            gameState.completedMissions.push(mission.id);
-            gameState.coins += mission.reward;
-            gameState.totalLifetimeCoins += mission.reward;
-            showMessage(`Mission Complete: ${mission.title}! +${formatNumber(mission.reward)}💰`, 'success');
-            missionCompleted = true;
+const checkProgression = () => {
+    // Daily Goal
+    if (gameState.daily.taps >= CONSTANTS.DAILY.TAPS && !gameState.daily.claimed) {
+        gameState.coins += CONSTANTS.DAILY.COINS;
+        gameState.tokens += CONSTANTS.DAILY.TOKENS;
+        gameState.daily.claimed = true;
+        notify("Daily Goal Reached! Reward Claimed.", 'success');
+        renderHeader(); // Full re-render needed for tokens
+    }
+
+    // Missions
+    let updated = false;
+    DAILY_MISSIONS.forEach(m => {
+        if (gameState.completedIds.includes(m.id)) return;
+        let curr = m.type === 'taps' ? gameState.daily.taps : gameState.daily.earned;
+        gameState.missions[m.id] = curr;
+        if (curr >= m.target) {
+            gameState.coins += m.reward;
+            gameState.completedIds.push(m.id);
+            notify(`Mission: ${m.desc} Complete!`, 'success');
+            updated = true;
         }
     });
-    if (missionCompleted && activeTab === 'missions') renderMissionsScreen();
+    if (updated && activeTab === 'missions') renderTab();
 };
 
-// --- RENDER FUNCTIONS ---
-// **IMPROVEMENT**: Split monolithic rendering into smaller, manageable functions.
-const navigate = (tabName) => {
-    if (activeTab === tabName) return;
-    activeTab = tabName;
-    
-    Object.values(DOM_ELEMENTS.tabs).forEach(el => el.classList.add('hide'));
-    const currentTabEl = DOM_ELEMENTS.tabs[tabName];
-    if (currentTabEl) {
-        currentTabEl.classList.remove('hide');
-        currentTabEl.classList.add('fade-in');
+const handleAction = (e) => {
+    const tgt = e.target.closest('[data-act]');
+    if (!tgt) return;
+    const { act, id, type } = tgt.dataset;
+    let needsRender = false;
+
+    switch(act) {
+        case 'buyC': // Buy Candidate
+            const c = GAME_CONFIG.candidates.find(x => x.id == id);
+            if (c && c.active && gameState.coins >= c.bid && !gameState.cards[id]) {
+                gameState.coins -= c.bid;
+                gameState.cards[id] = 1;
+                notify(`Joined ${c.name}'s campaign!`, 'success');
+                needsRender = true;
+            }
+            break;
+        case 'upgC': // Upgrade Candidate
+            const lvl = gameState.cards[id];
+            const cand = GAME_CONFIG.candidates.find(x => x.id == id);
+            if (lvl && cand && cand.active) {
+                const cost = Math.floor(cand.bid * Math.pow(1.6, lvl));
+                if (gameState.coins >= cost) {
+                    gameState.coins -= cost;
+                    gameState.cards[id]++;
+                    notify(`Upgraded to Lv. ${lvl+1}!`, 'success');
+                    needsRender = true;
+                }
+            }
+            break;
+        case 'watch':
+            const vidId = type+id;
+            if(!gameState.watched.includes(vidId)) {
+                const item = type === 'c' ? GAME_CONFIG.candidates.find(x=>x.id==id) : GAME_CONFIG.parties[id];
+                if(item) {
+                    gameState.coins += (item.videoReward || 1000);
+                    gameState.watched.push(vidId);
+                    notify("Thanks for watching! Reward added.", 'success');
+                    needsRender = true;
+                }
+            }
+            break;
+        // --- ADMIN ACTIONS ---
+        case 'admToggle':
+            const isParty = type === 'p';
+            const obj = isParty ? GAME_CONFIG.parties[id] : GAME_CONFIG.candidates.find(x=>x.id==id);
+            if(obj) {
+                obj.active = !obj.active;
+                saveAdminOverrides();
+                renderAdmin(); // Re-render admin panel immediately
+                needsRender = true; // Re-render main UI
+            }
+            break;
+        case 'admSpon':
+            const cs = GAME_CONFIG.candidates.find(x=>x.id==id);
+            if(cs) {
+                cs.sponsored = !cs.sponsored;
+                saveAdminOverrides();
+                renderAdmin();
+                needsRender = true;
+            }
+            break;
     }
+
+    if(needsRender) { renderHeader(); renderTab(); saveState(); }
+};
+
+// --- RENDERING ---
+const renderUIFast = () => {
+    // Updates frequent elements directly
+    $('ui-coins').innerText = fmt(gameState.coins);
+    $('ui-energy').style.width = `${(gameState.energy/CONSTANTS.ENERGY.MAX)*100}%`;
+    $('ui-energy-txt').innerText = Math.floor(gameState.energy);
     
-    renderNav();
-    renderCurrentTab();
-};
-
-const renderCurrentTab = () => {
-    const renderers = {
-        tap: renderTapScreen, 
-        cards: renderCardsScreen, 
-        missions: renderMissionsScreen,
-        media: renderMediaScreen, 
-        party: renderPartyScreen, 
-        store: renderStoreScreen,
-        leaderboard: renderLeaderboardScreen,
-    };
-    if (renderers[activeTab]) renderers[activeTab]();
-};
-
-const updateCoinDisplay = () => {
-    const coinsEl = document.getElementById('stat-coins');
-    if (coinsEl) coinsEl.textContent = formatNumber(gameState.coins);
-};
-
-const updateEnergyBar = () => {
-    const energyValEl = document.getElementById('stat-energy-val');
-    const energyBarEl = document.getElementById('stat-energy-bar');
-    if (energyValEl && energyBarEl) {
-        const energyPercentage = (gameState.energy / ENERGY_CONFIG.MAX) * 100;
-        energyValEl.textContent = `${Math.floor(gameState.energy)}/${ENERGY_CONFIG.MAX}`;
-        energyBarEl.style.width = `${energyPercentage}%`;
+    if (activeTab === 'tap') {
+        $('ui-power').innerText = `+${calcTap()}`;
+        const ch = $('ui-combo');
+        if(gameState.combo > 1) {
+            ch.innerText = `${gameState.combo}x`;
+            ch.style.opacity = 1;
+        } else { ch.style.opacity = 0; }
     }
+    setTimeout(loop, CONSTANTS.TIMERS.TICK);
 };
 
 const renderHeader = () => {
-    const pph = calculatePPH(gameState);
-    const tci = calculateTCI(gameState);
-    gameState.totalCampaignInfluence = tci; // Update state
-    
-    DOM_ELEMENTS.header.innerHTML = `
-        <div class="flex justify-around text-center">
-            <div><p id="stat-coins" class="text-2xl font-extrabold text-yellow-400">${formatNumber(gameState.coins)}</p><p class="text-xs text-gray-400">Funds 💰</p></div>
-            <div><p class="text-2xl font-extrabold text-purple-400">${formatNumber(gameState.influenceTokens)}</p><p class="text-xs text-gray-400">Tokens 💎</p></div>
-            <div><p class="text-2xl font-extrabold text-green-400">${formatNumber(tci)}</p><p class="text-xs text-gray-400">Influence 📈</p></div>
-        </div>
-        <div class="bg-slate-900/50 rounded-lg p-2 mt-3">
-            <div class="flex justify-between items-center text-sm mb-2 px-1">
-                <div class="text-center"><p class="text-blue-400 font-bold" id="stat-tap-power">+${formatNumber(calculateTapPower(gameState))}</p><p class="text-gray-400 text-xs">Tap Power</p></div>
-                <div class="text-center"><p class="text-green-400 font-bold">${formatNumber(pph)}/hr</p><p class="text-gray-400 text-xs">PPH</p></div>
-                <div class="text-center"><p class="text-purple-400 font-bold">${gameState.userCards.filter(c=>c.activated).length}</p><p class="text-gray-400 text-xs">Active</p></div>
+    DOM.header.innerHTML = `
+        <div class="flex justify-between items-center px-2">
+            <div class="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-full border border-slate-600">
+                <img src="${telegramUser?.photo_url || 'https://placehold.co/40'}" class="w-6 h-6 rounded-full">
+                <span class="font-bold text-sm truncate max-w-[80px]">${telegramUser?.username || 'Player'}</span>
             </div>
-            <div>
-                <div class="flex justify-between text-xs mb-1 px-1"><span class="text-yellow-400 font-bold">⚡ Energy</span><span id="stat-energy-val" class="text-gray-300">${Math.floor(gameState.energy)}/${ENERGY_CONFIG.MAX}</span></div>
-                <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden"><div id="stat-energy-bar" class="h-full bg-yellow-400 transition-all duration-300" style="width: ${(gameState.energy / ENERGY_CONFIG.MAX) * 100}%"></div></div>
+            <div class="text-right">
+                <div class="text-xs text-gray-400">Influence (TCI)</div>
+                <div class="font-black text-green-400 text-lg leading-none">${fmt(calcTCI())}</div>
             </div>
         </div>
-        <div id="combo-display" class="text-center font-bold text-lg text-yellow-300 mt-2 animate-pulse ${gameState.combo > 2 ? '' : 'hide'}">${gameState.combo}x Combo!</div>
-    `;
-};
-
-const renderNav = () => {
-    // Nav rendering logic is good.
-    const navItems = [
-        { tab: 'tap', icon: '👆', label: 'Tap' }, 
-        { tab: 'cards', icon: '🎴', label: 'Cards' },
-        { tab: 'missions', icon: '📋', label: 'Missions' }, 
-        { tab: 'media', icon: '📺', label: 'Media' },
-        { tab: 'party', icon: '🏛️', label: 'Party' }, 
-        { tab: 'store', icon: '💎', label: 'Store' },
-        { tab: 'leaderboard', icon: '🏆', label: 'Rank' },
-    ];
-    DOM_ELEMENTS.nav.innerHTML = navItems.map(({ tab, icon, label }) => `
-        <button data-tab="${tab}" class="nav-item flex-1 flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === tab ? 'active' : 'text-gray-400'}">
-            <span class="text-2xl">${icon}</span><span class="text-xs mt-1">${label}</span>
-        </button>
-    `).join('');
-};
-
-const updateTapScreen = () => {
-    // **IMPROVEMENT**: This function now only updates the dynamic parts of the tap screen.
-    const tapPowerEl = document.getElementById('stat-tap-power');
-    const tapButtonPowerEl = document.getElementById('tapButton-power');
-    const comboEl = document.getElementById('combo-display');
-    const dailyProgress = document.getElementById('daily-progress-bar');
-    
-    const tapPower = calculateTapPower(gameState);
-    if(tapPowerEl) tapPowerEl.textContent = `+${formatNumber(tapPower)}`;
-    if(tapButtonPowerEl) tapButtonPowerEl.textContent = `+${formatNumber(tapPower)}`;
-    
-    if(comboEl) {
-        if(gameState.combo > 2) {
-            comboEl.textContent = `${gameState.combo}x Combo!`;
-            comboEl.classList.remove('hide');
-        } else {
-            comboEl.classList.add('hide');
-        }
-    }
-    
-    if (dailyProgress) {
-        const progressPercent = Math.min(100, (gameState.dailyTaps / DAILY_GOAL.TAPS) * 100);
-        dailyProgress.style.width = `${progressPercent}%`;
-    }
-};
-
-const renderTapScreen = () => {
-    const isBoostActive = gameState.activeBoosts.some(b => b.multiplier > 1);
-    const progressPercent = Math.min(100, (gameState.dailyTaps / DAILY_GOAL.TAPS) * 100);
-    DOM_ELEMENTS.tabs.tap.innerHTML = `
-        <div class="relative mb-8 mt-4">
-            <button id="tapButton" class="w-[230px] h-[230px] rounded-full flex flex-col justify-center items-center text-white font-black text-4xl shadow-lg active:scale-95 transition-transform select-none ${isBoostActive ? 'boost-active' : ''}">
-                Tap! <span id="tapButton-power" class="text-3xl mt-1">+${formatNumber(calculateTapPower(gameState))}</span>
-            </button>
+        <div class="mt-3 flex justify-center items-center gap-2">
+            <img src="https://cdn-icons-png.flaticon.com/512/11079/11079191.png" class="w-10 h-10 filter drop-shadow-lg">
+            <span id="ui-coins" class="text-3xl font-black text-white tracking-wide drop-shadow-md">0</span>
         </div>
-        <div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-3 w-full max-w-sm mb-4">
-            <div class="flex justify-between items-center">
-                <div><p class="font-bold text-lg">${gameState.streak} Day Streak</p><p class="text-xs text-yellow-300">Tap Power Bonus: +${STREAK_BONUS[gameState.streak]}%</p></div>
-            </div>
-        </div>
-        <div class="w-full max-w-sm p-4 bg-slate-800/80 rounded-xl border border-slate-700/50">
-            <h3 class="font-bold text-lg text-blue-300 mb-2">Daily Goal (${DAILY_GOAL.TAPS} Taps)</h3>
-            <p class="text-sm text-gray-400 mb-2 flex justify-between">
-                <span>Progress: ${gameState.dailyTaps}/${DAILY_GOAL.TAPS}</span>
-                <span class="text-yellow-400">+${formatNumber(DAILY_GOAL.REWARD_COINS)}💰 & +${DAILY_GOAL.REWARD_TOKENS}💎</span>
-            </p>
-            <div class="w-full bg-gray-700 rounded-full h-2.5"><div id="daily-progress-bar" class="bg-blue-500 h-2.5 rounded-full" style="width: ${progressPercent}%"></div></div>
+        <div class="grid grid-cols-3 gap-2 mt-3 text-center text-xs font-bold bg-slate-900/60 rounded-lg p-2">
+            <div><div class="text-blue-400">+${fmt(calcTap())}</div><div class="text-gray-500 font-normal">Tap</div></div>
+            <div><div class="text-green-400">+${fmt(calcPPH())}</div><div class="text-gray-500 font-normal">/Hr</div></div>
+            <div><div class="text-purple-400">${gameState.tokens}</div><div class="text-gray-500 font-normal">Tokens</div></div>
         </div>
     `;
 };
 
-const renderCardsScreen = () => {
-    // This function is mostly static generation, so innerHTML is acceptable.
-    DOM_ELEMENTS.tabs.cards.innerHTML = `
-        <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Candidate Cards</h2>
-        <div class="space-y-4">${GAME_CONFIG.candidates.map(candidate => {
-            const userCard = gameState.userCards.find(c => c.id === candidate.id);
-            const cardClass = userCard ? (userCard.activated ? 'border-green-400 bg-slate-800' : 'border-slate-600 bg-slate-800/70') : 'border-slate-700 bg-slate-800/50';
-            const upgradeCost = userCard ? candidate.bid * userCard.level * 1.5 : 0;
-            return `
-                <div class="p-4 rounded-xl border-2 relative ${cardClass}">
-                    ${candidate.sponsored ? `<div class="absolute top-2 right-2 text-xs bg-yellow-500 text-black font-bold px-2 py-0.5 rounded-full">Sponsored</div>` : ''}
-                    <div class="flex gap-4 items-start">
-                        <img src="${candidate.photo}" alt="${candidate.name}" class="w-20 h-20 rounded-full object-cover border-4 ${candidate.logoColor}" />
-                        <div class="flex-1">
-                            <div class="flex justify-between"><h3 class="font-bold text-lg">${candidate.name}</h3>${userCard ? `<p class="font-bold text-yellow-400">Lv. ${userCard.level}</p>`: ''}</div>
-                            <p class="text-sm text-gray-400">${GAME_CONFIG.parties[candidate.party]?.name || 'Unknown Party'}</p>
-                            <p class="text-xs text-gray-300 mt-1">PPH: +${formatNumber(candidate.profitPerHour * (userCard ? userCard.level : 1))}</p>
+const switchTab = (t) => {
+    activeTab = t;
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hide'));
+    DOM.tabs[t].classList.remove('hide');
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tab === t));
+    renderTab();
+};
+
+const renderTab = () => {
+    const t = DOM.tabs[activeTab];
+    if (activeTab === 'tap') {
+        const dPerc = Math.min(100, (gameState.daily.taps/CONSTANTS.DAILY.TAPS)*100);
+        t.innerHTML = `
+            <div class="flex justify-between items-center px-4 mt-2 mb-6">
+                <div class="flex items-center gap-1 text-yellow-400 font-bold"><i class="fa fa-bolt"></i> <span id="ui-energy-txt">0</span></div>
+                <div class="flexItems-center gap-1 text-orange-400 font-bold">🔥 Day ${gameState.streak}</div>
+            </div>
+            <div class="relative flex justify-center items-center mb-6">
+                <div class="absolute inset-0 rounded-full bg-blue-500/20 blur-3xl transform scale-75"></div>
+                <button id="tapButton" class="z-10 flex flex-col items-center justify-center text-white">
+                    <span class="text-sm font-bold opacity-80">TAP</span>
+                    <span id="ui-power" class="text-4xl font-black leading-none">0</span>
+                </button>
+                <div id="ui-combo" class="absolute top-0 right-10 font-black text-yellow-300 text-xl rotate-12 transition-opacity duration-300" style="opacity:0"></div>
+            </div>
+            <div class="px-4">
+                <div class="h-3 bg-slate-700 rounded-full overflow-hidden border border-slate-600 relative">
+                    <div id="ui-energy" class="h-full bg-gradient-to-r from-yellow-500 to-yellow-300 transition-all duration-300 absolute top-0 left-0"></div>
+                </div>
+                <div class="mt-4 bg-slate-800/80 rounded-xl p-3 border border-slate-700">
+                    <div class="flex justify-between text-xs mb-1"><span>Daily Goal</span><span>${gameState.daily.claimed ? 'Claimed ✅' : `${gameState.daily.taps}/${CONSTANTS.DAILY.TAPS}`}</span></div>
+                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden"><div class="h-full bg-blue-500" style="width:${dPerc}%"></div></div>
+                </div>
+            </div>
+        `;
+        $('tapButton').addEventListener('touchstart', handleTap, {passive:false});
+        $('tapButton').addEventListener('mousedown', handleTap);
+    }
+    else if (activeTab === 'cards') {
+        const sorted = [...GAME_CONFIG.candidates].sort((a,b) => (b.sponsored?1:0) - (a.sponsored?1:0) || (b.active?1:0) - (a.active?1:0));
+        t.innerHTML = `<div class="px-3 pb-4 space-y-3 pt-2">
+            ${sorted.map(c => {
+                const owned = gameState.cards[c.id];
+                const lvl = owned || 0;
+                const pph = c.profitPerHour * (lvl || 1);
+                const cost = Math.floor(c.bid * Math.pow(1.6, lvl));
+                const canAfford = gameState.coins >= cost;
+                
+                // BUSINESS LOGIC: Visually lock inactive cards
+                const uiState = !c.active ? 'opacity-50 filter-grayscale pointer-events-none' : owned ? 'bg-slate-800 border-blue-500/50' : 'bg-slate-800/50 border-slate-700';
+                
+                return `
+                <div class="relative rounded-xl p-3 border ${uiState} flex gap-3 items-center transition-all">
+                    ${c.sponsored && c.active ? '<div class="absolute top-0 right-0 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-bl-lg rounded-tr-xl z-10">⭐ SPONSORED</div>' : ''}
+                    <img src="${c.photo}" class="w-16 h-16 rounded-lg object-cover border-2 ${c.logoColor}">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-end">
+                            <h3 class="font-bold truncate leading-tight">${c.name}</h3>
+                            ${owned ? `<span class="text-xs font-bold text-blue-400">Lvl ${lvl}</span>` : ''}
                         </div>
+                        <p class="text-xs text-gray-400 truncate">${GAME_CONFIG.parties[c.party]?.name}</p>
+                        <div class="text-[10px] text-gray-500 mt-1">Profit: <span class="text-green-400 font-bold">+${fmt(pph)}/h</span></div>
                     </div>
-                    <div class="flex justify-between mt-4 gap-2">
-                        ${userCard ? `
-                            <button data-action="toggleActivateCard" data-id="${candidate.id}" class="w-1/2 py-2 rounded font-bold text-white ${userCard.activated ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'}">${userCard.activated ? 'Deactivate' : 'Activate'}</button>
-                            <button data-action="upgradeCard" data-id="${candidate.id}" class="w-1/2 bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" ${gameState.coins < upgradeCost ? 'disabled' : ''}>Upgrade (${formatNumber(upgradeCost)}💰)</button>
-                        ` : `
-                            <button data-action="buyCard" data-id="${candidate.id}" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" ${!candidate.active || gameState.coins < candidate.bid ? 'disabled' : ''}>${candidate.active ? `Buy (${formatNumber(candidate.bid)}💰)` : 'Unavailable'}</button>
-                        `}
+                    <div class="w-24 shrink-0">
+                        ${!c.active ? 
+                            `<button class="w-full py-2 bg-slate-700 text-gray-400 font-bold text-xs rounded flex items-center justify-center gap-1"><i class="fa fa-lock"></i> Locked</button>` :
+                          owned ? 
+                            `<button data-act="upgC" data-id="${c.id}" class="w-full py-1 bg-blue-600 rounded text-xs font-bold disabled:opacity-50 disabled:bg-slate-600" ${!canAfford?'disabled':''}>
+                                <div>Upg</div><div class="font-normal">💰${fmt(cost)}</div>
+                             </button>` : 
+                            `<button data-act="buyC" data-id="${c.id}" class="w-full py-2 bg-green-600 rounded text-xs font-bold disabled:opacity-50" ${!canAfford?'disabled':''}>
+                                Hire 💰${fmt(c.bid)}
+                             </button>`
+                        }
                     </div>
-                    ${!candidate.active ? `<p class="text-xs text-red-400 mt-2">Card inactive. Contact admin: ${ADMIN_CONTACT.telegram}</p>` : ''}
-                </div>`;
-        }).join('')}</div>`;
-};
-// Other render functions (missions, media, etc.) can remain as they are, since they are less frequently updated.
-const renderMissionsScreen = () => { /* Original code here */ };
-const renderMediaScreen = () => { /* Original code here */ };
-const renderPartyScreen = () => { /* Original code here */ };
-const renderStoreScreen = () => { /* Original code here */ };
-const renderLeaderboardScreen = () => { /* Original code here */ };
-
-// --- MODAL & ADMIN ---
-const renderModal = (title, content, showClose = true) => {
-    DOM_ELEMENTS.modalContainer.innerHTML = `
-        <div data-action="closeModal" class="modal-overlay"></div>
-        <div class="modal bg-slate-800 w-[90%] max-w-lg rounded-xl p-6 border-2 border-blue-500 shadow-lg">
-            <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">${title}</h2>
-            <div>${content}</div>
-            ${showClose ? `<button data-action="closeModal" class="w-full mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">Close</button>` : ''}
+                </div>`
+            }).join('')}
+            <div class="h-10"></div> <!-- Spacer -->
         </div>`;
-};
-
-const closeModal = () => {
-    DOM_ELEMENTS.modalContainer.innerHTML = '';
-};
-const renderAdminPanelContent = () => { /* Original code here */ };
-
-// --- ACTION HANDLER ---
-// Your action handler is well-structured. No major changes needed, just ensure it calls the right update functions.
-const handleAction = (e) => {
-    const target = e.target.closest('[data-action]');
-    if (!target) return;
-    const { action, id, type } = target.dataset;
-
-    const performUpdate = () => {
-        saveGameState();
-        updateHeader(); // Always update header as coins might change
-        renderCurrentTab();
-    };
-
-    // Actions like buyCard, upgradeCard, etc.
-    if (action === 'buyCard') {
-        // ... logic
-        performUpdate();
     }
-    // ... all other actions
-    // For actions that only change a small part, call the specific updater.
-    // e.g., toggleActivateCard would call `performUpdate()` because PPH and Active count changes.
+    else if (activeTab === 'media') {
+        // BUSINESS LOGIC: Only show media for ACTIVE candidates/parties
+        const vids = [
+            ...GAME_CONFIG.candidates.filter(c => c.active && c.promoVideo).map(c => ({id: c.id, type:'c', name: c.name, img: c.photo, rw: c.videoReward})),
+            ...Object.entries(GAME_CONFIG.parties).filter(([k,v]) => v.active && v.promoVideo).map(([k,v]) => ({id: k, type:'p', name: v.name, img: v.logo, rw: v.videoReward}))
+        ];
+        
+        t.innerHTML = `<div class="px-3 pt-2 grid grid-cols-2 gap-3">
+            ${vids.length === 0 ? '<p class="col-span-2 text-center text-gray-500 mt-10">No sponsored media available right now.</p>' : ''}
+            ${vids.map(v => {
+                const isWatched = gameState.watched.includes(v.type+v.id);
+                return `
+                <div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col">
+                    <div class="relative h-24 bg-slate-900 flex items-center justify-center text-4xl">
+                        ${v.type==='c' ? `<img src="${v.img}" class="w-full h-full object-cover opacity-50">` : v.img}
+                        <i class="fa fa-play-circle absolute text-white/80 text-3xl drop-shadow-lg"></i>
+                    </div>
+                    <div class="p-2 flex-1 flex flex-col justify-between">
+                        <div class="font-bold text-sm truncate text-center mb-2">${v.name}</div>
+                        <button data-act="watch" data-type="${v.type}" data-id="${v.id}" class="w-full py-1.5 rounded text-xs font-bold ${isWatched ? 'bg-slate-600 text-gray-400' : 'bg-red-600 text-white'}" ${isWatched?'disabled':''}>
+                            ${isWatched ? 'Watched' : `Watch +${fmt(v.rw||1000)}💰`}
+                        </button>
+                    </div>
+                </div>`
+            }).join('')}
+        </div>`;
+    }
+    // ... (Implementation for Party, Missions, Store, Leaderboard would follow similar optimized patterns)
+    else {
+        t.innerHTML = `<div class="flex h-full items-center justify-center text-gray-500">Comming Soon</div>`;
+    }
 };
 
-// --- TELEGRAM INTEGRATION ---
-const initTelegram = () => {
+// --- ADMIN PANEL ---
+const renderAdmin = () => {
+    const html = `
+    <div class="p-1">
+        <div class="bg-slate-900 p-3 rounded-lg mb-4 text-sm">
+            <h3 class="text-blue-400 font-bold mb-1">💼 Business Panel</h3>
+            <p class="text-gray-400">Contact: <span class="text-white select-all">${ADMIN_INFO.contact}</span></p>
+            <div class="grid grid-cols-2 gap-2 mt-2 text-xs">
+                <div class="bg-slate-800 p-1 rounded">Cand: ${ADMIN_INFO.rates.candidate}</div>
+                <div class="bg-slate-800 p-1 rounded">Party: ${ADMIN_INFO.rates.party}</div>
+            </div>
+        </div>
+
+        <h4 class="font-bold text-white mb-2 sticky top-0 bg-slate-800 py-2">Candidates (${GAME_CONFIG.candidates.length})</h4>
+        <div class="space-y-2 mb-6">
+            ${GAME_CONFIG.candidates.map(c => `
+            <div class="flex items-center justify-between bg-slate-900 p-2 rounded border ${c.active?'border-green-900':'border-slate-700'}">
+                <div class="flex items-center gap-2">
+                    <img src="${c.photo}" class="w-8 h-8 rounded bg-slate-700 object-cover">
+                    <div class="text-sm">
+                        <div class="font-bold ${c.active?'text-white':'text-gray-500'}">${c.name}</div>
+                        <div class="text-[10px] text-gray-400">${c.sponsored ? '⭐ Sponsor' : 'Standard'}</div>
+                    </div>
+                </div>
+                <div class="flex gap-1">
+                    <button data-act="admSpon" data-id="${c.id}" class="px-2 py-1 rounded text-[10px] font-bold ${c.sponsored?'bg-yellow-600 text-black':'bg-slate-700 text-gray-400'}"><i class="fa fa-star"></i></button>
+                    <button data-act="admToggle" data-type="c" data-id="${c.id}" class="w-16 py-1 rounded text-[10px] font-bold ${c.active?'bg-red-900 text-red-200':'bg-green-600 text-white'}">
+                        ${c.active ? 'DEACTIVATE' : 'ACTIVATE'}
+                    </button>
+                </div>
+            </div>`).join('')}
+        </div>
+
+        <h4 class="font-bold text-white mb-2 sticky top-0 bg-slate-800 py-2">Parties</h4>
+        <div class="space-y-2">
+            ${Object.entries(GAME_CONFIG.parties).map(([id, p]) => `
+            <div class="flex items-center justify-between bg-slate-900 p-2 rounded border ${p.active?'border-green-900':'border-slate-700'}">
+                <div class="flex items-center gap-2">
+                    <div class="text-xl w-8 text-center">${p.logo}</div>
+                    <div class="text-sm font-bold ${p.active?'text-white':'text-gray-500'}">${p.name}</div>
+                </div>
+                <button data-act="admToggle" data-type="p" data-id="${id}" class="w-16 py-1 rounded text-[10px] font-bold ${p.active?'bg-red-900 text-red-200':'bg-green-600 text-white'}">
+                    ${p.active ? 'DEACTIVATE' : 'ACTIVATE'}
+                </button>
+            </div>`).join('')}
+        </div>
+        
+        <div class="mt-6 pt-4 border-t border-slate-700">
+            <button onclick="if(confirm('Clear all local data?')) {localStorage.clear();location.reload();}" class="w-full bg-red-900/50 border border-red-800 text-red-400 text-xs py-2 rounded">⚠️ Hard Reset App</button>
+        </div>
+    </div>`;
+    
+    DOM.modals.innerHTML = `<div class="modal-overlay" onclick="this.parentElement.innerHTML=''"></div>
+    <div class="modal bg-slate-800 w-[95%] max-w-md rounded-xl border border-slate-600 flex flex-col max-h-[85vh]">
+        <div class="flex justify-between items-center p-3 border-b border-slate-700">
+            <h2 class="font-bold text-lg">Admin Control</h2>
+            <button onclick="DOM.modals.innerHTML=''" class="w-8 h-8 bg-slate-700 rounded-full"><i class="fa fa-times"></i></button>
+        </div>
+        <div class="overflow-y-auto p-3 flex-1">${html}</div>
+    </div>`;
+};
+
+// --- INIT ---
+const init = async () => {
+    // 1. Telegram Init
     if (window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;
-        tg.expand();
+        tg.ready(); tg.expand();
+        tg.setHeaderColor('#1e293b');
         telegramUser = tg.initDataUnsafe?.user;
-        
-        if (telegramUser) {
-            console.log("Telegram user detected:", telegramUser);
-            gameState.telegram = {
-                id: telegramUser.id,
-                username: telegramUser.username || `user_${telegramUser.id}`,
-                firstName: telegramUser.first_name || '',
-                lastName: telegramUser.last_name || ''
-            };
+        // SECURITY CHECK: Only show admin button for specfic ID
+        if(telegramUser?.id === YOUR_ADMIN_TELEGRAM_ID) {
+            DOM.adminBtn.style.display = 'flex';
         }
-        
-        if (tg.themeParams) {
-            document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#0f172a');
-            document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#f1f5f9');
-        }
-        
     } else {
-        console.log("Running outside Telegram, using test mode");
-        // Fallback logic is fine.
+        // Dev mode fallback
+        telegramUser = {id: 999, username: 'Dev', first_name: 'Dev'};
+        if(YOUR_ADMIN_TELEGRAM_ID === 999) DOM.adminBtn.style.display = 'flex';
     }
+
+    // 2. Render Nav
+    DOM.nav.innerHTML = ['tap', 'cards', 'missions', 'media', 'leaderboard']
+        .map(t => `<button class="nav-item flex-1 py-1 text-gray-500 transition-colors rounded-lg ${t===activeTab?'active':''}" data-tab="${t}" onclick="switchTab('${t}')">
+            <i class="fa fa-${{tap:'hand-pointer',cards:'users',missions:'tasks',media:'play-circle',party:'flag',store:'shopping-cart',leaderboard:'trophy'}[t]} text-xl"></i>
+            <div class="text-[10px] font-bold mt-0.5 capitalize">${t}</div>
+        </button>`).join('');
+
+    // 3. Load Data
+    await loadConfig();
+    loadState();
+
+    // 4. Start
+    DOM.loader.classList.add('opacity-0', 'pointer-events-none');
+    renderHeader();
+    renderTab();
+    loop();
+    renderUIFast(); // Kickstart UI loop
+
+    // Listeners
+    document.body.addEventListener('click', handleAction);
+    DOM.adminBtn.onclick = renderAdmin;
+    setInterval(saveState, CONSTANTS.TIMERS.SAVE);
 };
 
-// --- INITIALIZATION ---
-const initGame = async () => {
-    await loadExternalConfig();
-    loadGameState();
-    initTelegram();
-
-    // Setup intervals
-    setInterval(mainTick, GAME_TIMERS.MAIN_TICK);
-    setInterval(saveGameState, GAME_TIMERS.SAVE_INTERVAL);
-
-    // Setup event listeners
-    document.body.addEventListener('click', (e) => {
-        handleAction(e);
-        const navButton = e.target.closest('[data-tab]');
-        if (navButton) navigate(navButton.dataset.tab);
-    });
-    
-    // **IMPROVEMENT**: More robust event handling for the tap button
-    document.body.addEventListener('mousedown', e => { if (e.target.closest('#tapButton')) handleTap(e); });
-    document.body.addEventListener('touchstart', e => { if (e.target.closest('#tapButton')) handleTap(e); }, { passive: false });
-
-    DOM_ELEMENTS.adminToggle.addEventListener('click', () => {
-        renderModal('Admin Panel', renderAdminPanelContent());
-    });
-    
-    navigate('tap');
-    updateHeader();
-    DOM_ELEMENTS.loadingIndicator.style.display = 'none';
-};
-
-initGame();
+init();
 });
 </script>
 </body>
