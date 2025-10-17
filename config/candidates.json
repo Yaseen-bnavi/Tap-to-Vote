@@ -14,8 +14,21 @@
     "specialAbility": "Critical Tap: 5% chance for 3x funds",
     "abilityType": "critical",
     "photo": "Halat.jpg",
-    "promoVideo": "https://youtube.com/shorts/pRm3joE0E_4?si=G3TYGr93N-h1S5_8",
-    "videoReward": 5000,
+    "promoVideos": [
+      {
+        "title": "Campaign Speech",
+        "url": "https://youtube.com/shorts/pRm3joE0E_4?si=G3TYGr93N-h1S5_8",
+        "reward": 500
+      },
+      {
+        "title": "Interview", 
+        "url": "https://youtube.com/embed/video2",
+        "reward": 300
+      }
+    ],
+    "videoReward": 500
+  }
+]
     "bio": "Former minister known for anti-corruption efforts.",
     "profitPerHour": 100,
     "active": true,
