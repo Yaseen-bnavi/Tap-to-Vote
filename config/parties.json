@@ -15,7 +15,7 @@
     "color": "bg-green-600/80",
     "description": "Popular political movement.",
     "photo": "sadr_logo.png",
-    "active": true,
+    "active": false,
     "promoVideo": "https://www.youtube.com/embed/example",
     "videoReward": 5000
   }
