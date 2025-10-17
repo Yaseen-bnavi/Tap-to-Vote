@@ -659,9 +659,6 @@ const renderSettingsPanel = () => {
         </div>
 
         <div class="mt-4 grid grid-cols-2 gap-2">
-            <button data-action="exportData" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded text-sm">
-                Export Data
-            </button>
             <button data-action="resetGame" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm">
                 Reset Game
             </button>
@@ -1293,27 +1290,6 @@ watchVideo: () => {
                 updateAll();
             } else {
                 showNotification(`Need ${formatNumber(actualCost)} coins!`, "error");
-            }
-        },
-        exportData: () => {
-            try {
-                const dataStr = JSON.stringify({
-                    gameState: gameState,
-                    config: GAME_CONFIG,
-                    leaderboard: JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}'),
-                    exportDate: new Date().toISOString()
-                }, null, 2);
-                const blob = new Blob([dataStr], {type: 'application/json'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `campaign-data-${getTodayString()}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-                showNotification('Game data exported successfully!', 'success');
-            } catch (e) {
-                showNotification('Failed to export data.', 'error');
-                console.error(e);
             }
         },
         resetGame: () => {
