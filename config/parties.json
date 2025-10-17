@@ -1,22 +1,22 @@
 {
   "p1": {
     "name": "Kurdistan Democratic Party",
-    "logo": "🇮🇶",
-    "color": "bg-red-700/80",
-    "description": "A cross-sectarian alliance.",
-    "photo": "https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/main/logos/KDP.png",
+    "logo": "kdp.png",
+    "color": "bg-yellow-600/80",
+    "description": "Leading Kurdish political party.",
+    "photo": "KDP.png",
     "active": true,
-    "promoVideo": "https://www.youtube.com/embed/P_wKDMcr16g",
-    "videoReward": 3000
+    "promoVideo": "https://www.youtube.com/embed/example",
+    "videoReward": 5000
   },
   "p2": {
-    "name": "Fatah Alliance",
-    "logo": "🛡️",
-    "color": "bg-green-700/80",
-    "description": "Kurdish Party 275",
-    "photo": "https://picsum.photos/seed/p2/80/80",
-    "active": false,
-    "promoVideo": "https://www.youtube.com/embed/P_wKDMcr16g",
-    "videoReward": 3000
+    "name": "Sadrist Movement", 
+    "logo": "sadr.png",
+    "color": "bg-green-600/80",
+    "description": "Popular political movement.",
+    "photo": "sadr_logo.png",
+    "active": true,
+    "promoVideo": "https://www.youtube.com/embed/example",
+    "videoReward": 5000
   }
 }
