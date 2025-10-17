@@ -347,74 +347,61 @@ const handleAction = (e) => {
         buyCard: () => { const c = GAME_CONFIG.candidates.find(c => c.id == id); if (!c) { showNotification("Candidate not found!", "error"); return; } if (!c.active) { showNotification("This candidate is not active!", "error"); return; } const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const actualBid = Math.floor(c.bid * inflation); if (gameState.coins >= actualBid) { gameState.coins -= actualBid; gameState.userCards.push({ id: parseInt(id), level: 1 }); showNotification(`Hired ${c.name}!`, 'success'); checkAchievements(); updateAll(); } else { showNotification(`Need ${formatNumber(actualBid)} coins!`, "error"); } },
         upgradeCard: () => { const uc = gameState.userCards.find(uc => uc.id == id); const c = GAME_CONFIG.candidates.find(c => c.id == id); if (!c.active) { showNotification("Cannot upgrade an inactive candidate!", "error"); return; } if(uc) { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const upgradeCost = Math.floor(c.bid * uc.level * 2 * inflation); if (gameState.coins >= upgradeCost) { gameState.coins -= upgradeCost; uc.level++; showNotification(`${c.name} upgraded to Lv.${uc.level}!`, 'success'); checkMissionProgress('level', uc.level); updateAll(); } else { showNotification(`Need ${formatNumber(upgradeCost)} coins!`, "error"); } } },
         // FIXED: watchVideo function with improved YouTube URL parsing
-        watchVideo: () => {
-            const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
-            if (!item || !item.promoVideo) {
-                showNotification("Video link is missing for this item.", "error");
-                return;
+watchVideo: () => {
+    const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
+    const watchId = (type === 'candidate' ? 'c' : 'p') + id;
+    
+    if (item) {
+        // Fix YouTube URL - convert shorts to embed format
+        let videoUrl = item.promoVideo;
+        
+        // Handle YouTube Shorts URLs
+        if (videoUrl.includes('youtube.com/shorts/')) {
+            const videoId = videoUrl.split('/shorts/')[1].split('?')[0];
+            videoUrl = `https://www.youtube.com/embed/${videoId}`;
+        }
+        // Handle regular YouTube watch URLs
+        else if (videoUrl.includes('watch?v=')) {
+            videoUrl = videoUrl.replace("watch?v=", "embed/");
+        }
+        // Handle youtu.be short URLs
+        else if (videoUrl.includes('youtu.be/')) {
+            const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+            videoUrl = `https://www.youtube.com/embed/${videoId}`;
+        }
+        // If it's already an embed URL, use as-is
+        else if (!videoUrl.includes('embed')) {
+            // Fallback: try to extract video ID from various formats
+            const videoId = videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+            if (videoId) {
+                videoUrl = `https://www.youtube.com/embed/${videoId[1]}`;
             }
+        }
 
-            let videoId = null;
-            const url = item.promoVideo;
-
-            // Improved YouTube URL parsing that handles various formats
-            if (url.includes('youtube.com/embed/')) {
-                videoId = url.split('youtube.com/embed/')[1];
-            } else if (url.includes('youtube.com/watch?v=')) {
-                videoId = url.split('youtube.com/watch?v=')[1];
-                // Remove any additional parameters
-                if (videoId.includes('&')) {
-                    videoId = videoId.split('&')[0];
-                }
-            } else if (url.includes('youtu.be/')) {
-                videoId = url.split('youtu.be/')[1];
-                // Remove any additional parameters
-                if (videoId.includes('?')) {
-                    videoId = videoId.split('?')[0];
-                }
-            } else {
-                // Try a more general regex approach
-                const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-                const match = url.match(youtubeRegex);
-                if (match && match[1]) {
-                    videoId = match[1];
-                }
-            }
-
-            if (!videoId) {
-                showNotification("Could not find a valid YouTube video ID in the link.", "error");
-                console.error("Invalid YouTube URL:", url);
-                return;
-            }
-
-            // Build the correct embed URL
-            const videoUrl = `https://www.youtube.com/embed/${videoId}`;
-            const watchId = (type === 'candidate' ? 'c' : 'p') + id;
-            const hasWatched = gameState.watchedVideos[watchId];
-
-            const content = `
-                <div class="aspect-w-16 aspect-h-9" style="position: relative; padding-bottom: 56.25%; height: 0;">
-                    <iframe src="${videoUrl}" 
-                            frameborder="0" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowfullscreen 
-                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
-                            class="rounded"></iframe>
-                </div>
-                <div class="flex gap-2 mt-4">
-                    <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" 
-                            class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded ${hasWatched ? 'opacity-50 cursor-not-allowed' : ''}" 
-                            ${hasWatched ? 'disabled' : ''}>
-                        ${hasWatched ? 'Already Rewarded' : `Claim ${formatNumber(item.videoReward)}💰`}
-                    </button>
-                    <button data-action="closeModal" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">
-                        Close
-                    </button>
-                </div>
-                ${hasWatched ? `<p class="text-center text-green-400 text-sm mt-2">Rewards are only given once.</p>` : ''}
-            `;
-            renderModal(`${item.name} - Campaign Video`, content, false);
-        },
+        const hasWatched = gameState.watchedVideos[watchId];
+        const rewardText = hasWatched ? 
+            'Watch again (No reward)' : 
+            `Watch Video (+${formatNumber(item.videoReward)}💰)`;
+        
+        const content = `
+            <div class="aspect-w-16 aspect-h-9">
+                <iframe src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-64 rounded"></iframe>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" 
+                        class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded ${hasWatched ? 'opacity-50 cursor-not-allowed' : ''}" 
+                        ${hasWatched ? 'disabled' : ''}>
+                    ${hasWatched ? 'Already Rewarded' : `Claim ${formatNumber(item.videoReward)}💰`}
+                </button>
+                <button data-action="closeModal" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">
+                    Close
+                </button>
+            </div>
+            ${hasWatched ? `<p class="text-center text-green-400 text-sm mt-2">You can watch this video anytime, but rewards are only given once.</p>` : ''}
+        `;
+        renderModal(`${item.name} - Campaign Video`, content, false);
+    }
+},
         claimVideoReward: () => { const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id]; const watchId = (type === 'candidate' ? 'c' : 'p') + id; if (item && !gameState.watchedVideos[watchId]) { gameState.coins += item.videoReward; gameState.totalLifetimeCoins += item.videoReward; gameState.watchedVideos[watchId] = true; showNotification(`Watched video, +${formatNumber(item.videoReward)}💰!`, 'success'); closeModal(); updateAll(); } },
         investParty: () => { const party = GAME_CONFIG.parties[id]; const partyState = gameState.parties[id]; if (!party.active) { showNotification("This party is currently inactive!", "error"); return; } const investmentAmount = 2000; if (partyState && gameState.coins >= investmentAmount) { gameState.coins -= investmentAmount; partyState.xp += 150; partyState.totalInvestment += investmentAmount; if(partyState.xp >= partyState.level * 750) { partyState.xp -= partyState.level * 750; partyState.level++; showNotification(`${party.name} leveled up to Lv.${partyState.level}!`, 'success'); } updateAll(); } else { showNotification(`Need ${formatNumber(investmentAmount)} coins!`, "error"); } },
         upgradeParty: () => { const party = GAME_CONFIG.parties[id]; const partyState = gameState.parties[id]; const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const upgradeCost = Math.floor(partyState.level * 8 * inflation); if (!party.active) { showNotification("Cannot upgrade an inactive party!", "error"); return; } if(partyState && gameState.influenceTokens >= upgradeCost) { gameState.influenceTokens -= upgradeCost; partyState.level++; showNotification(`${party.name} upgraded to Lv.${partyState.level}!`, 'success'); updateAll(); } else { showNotification(`Need ${formatNumber(upgradeCost)} influence tokens!`, "error"); } },
