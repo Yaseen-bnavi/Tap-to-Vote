@@ -218,7 +218,7 @@ const loadExternalConfig = async () => {
     } catch (error) {
         console.error('❌ Error loading external config:', error);
         showNotification('Failed to load game data. Using default configuration.', 'error');
-        GAME_CONFIG = { parties: { p1: { name: "Sairoon Current", logo: "party1.png", color: "bg-red-700/80", description: "A cross-sectarian alliance.", photo: "party1.png", active: true, promoVideo: "https://www.youtube.com/embed/P_wKDMcr16g", videoReward: 1500 } }, candidates: [ { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 2000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: "⭐", photo: "candidate1.jpg", promoVideo: "https://www.youtube.com/embed/dQw4w9WgXcQ", videoReward: 500, bio: "Default candidate bio.", profitPerHour: 5, active: true, sponsored: false } ], managers: [ { id: 'm1', name: "Default Manager", icon: '📱', description: "Default manager description", effect: 1.1, cost: 10000 } ] };
+        GAME_CONFIG = { parties: { p1: { name: "Sairoon Current", logo: "party1.png", color: "bg-red-700/80", description: "A cross-sectarian alliance.", photo: "party1.png", active: true, promoVideos: [{title: "Default Video", url: "https://www.youtube.com/embed/P_wKDMcr16g", reward: 1500}], videoReward: 1500 } }, candidates: [ { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 2000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: "⭐", photo: "candidate1.jpg", promoVideos: [{title: "Default Video", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", reward: 500}], videoReward: 500, bio: "Default candidate bio.", profitPerHour: 5, active: true, sponsored: false } ], managers: [ { id: 'm1', name: "Default Manager", icon: '📱', description: "Default manager description", effect: 1.1, cost: 10000 } ] };
     }
 };
 
@@ -288,7 +288,82 @@ const renderNav = () => { const navItems = [ { tab: 'tap', icon: '👆', label: 
 const renderTapScreen = () => { const isBoostActive = gameState.activeBoosts.some(b => b.multiplier > 1); const progressPercent = Math.min(100, (gameState.dailyTaps / DAILY_GOAL) * 100); return `<div class="relative mb-8 mt-4"><button id="tapButton" class="w-[230px] h-[230px] rounded-full flex flex-col justify-center items-center text-white font-black text-4xl shadow-lg active:scale-95 transition-transform select-none ${isBoostActive ? 'boost-active' : ''}">Tap! <span class="text-3xl mt-1">+${formatNumber(calculateTapPower(gameState))}</span></button></div><div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-3 w-full max-w-sm mb-4"><div class="flex justify-between items-center"><div><p class="font-bold text-lg">${gameState.streak} Day Streak</p><p class="text-xs text-yellow-300">Tap Power Bonus: +${STREAK_BONUS[gameState.streak || 0]}%</p></div></div></div><div class="w-full max-w-sm p-4 bg-slate-800/80 rounded-xl border border-slate-700/50"><h3 class="font-bold text-lg text-blue-300 mb-2">Daily Goal (${DAILY_GOAL} Taps)</h3><p class="text-sm text-gray-400 mb-2 flex justify-between"><span>Progress: ${gameState.dailyTaps}/${DAILY_GOAL}</span><span class="text-yellow-400">+${formatNumber(DAILY_REWARD_COINS)}💰 & +${DAILY_REWARD_TOKENS}💎</span></p><div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full" style="width: ${progressPercent}%"></div></div></div>`; };
 const renderCardsScreen = () => { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Candidate Cards</h2>${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center"><p class="text-red-300 text-sm">⚠️ Economic Inflation: All costs are ${inflation.toFixed(1)}x higher</p></div>` : ''}<div class="space-y-4">${GAME_CONFIG.candidates.map(candidate => { const userCard = gameState.userCards.find(c => c.id === candidate.id); const isActive = candidate.active; const cardClass = userCard ? 'border-green-400 bg-slate-800' : 'border-slate-700 bg-slate-800/50'; const finalCardClass = isActive ? cardClass : 'border-slate-700 bg-slate-900/60 filter-grayscale'; const baseCost = candidate.bid; const actualBid = Math.floor(baseCost * inflation); const upgradeCost = userCard ? Math.floor(candidate.bid * userCard.level * 2 * inflation) : 0; return `<div class="p-4 rounded-xl border-2 relative ${finalCardClass}">${candidate.sponsored && isActive ? `<div class="absolute top-2 right-2 text-xs bg-yellow-500 text-black font-bold px-2 py-0.5 rounded-full">Sponsored</div>` : ''}<div class="flex gap-4 items-start"><img src="${GITHUB_ASSETS_BASE_URL}photos/${candidate.photo}" alt="${candidate.name}" class="w-20 h-20 rounded-full object-cover border-4 ${candidate.logoColor}" onerror="this.src='https://picsum.photos/seed/${candidate.id}/100/100'" /><div class="flex-1"><div class="flex justify-between"><h3 class="font-bold text-lg">${candidate.name}</h3>${userCard ? `<p class="font-bold text-yellow-400">Lv. ${userCard.level}</p>` : ''}</div><p class="text-sm text-gray-400">${GAME_CONFIG.parties[candidate.party]?.name || 'Unknown Party'}</p><p class="text-xs text-gray-300 mt-1">PPH: +${formatNumber(candidate.profitPerHour * (userCard ? userCard.level : 1))}</p><p class="text-xs text-gray-400 mt-1">${candidate.policy}</p>${userCard ? `<p class="text-xs text-green-400 mt-1">✓ Generating income</p>` : ''}${inflation > 1 && !userCard ? `<p class="text-xs text-red-400 mt-1">Base cost: ${formatNumber(baseCost)}💰</p>` : ''}</div></div><div class="flex justify-between mt-4 gap-2">${userCard ? `<button data-action="upgradeCard" data-id="${candidate.id}" class="w-full bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white disabled:bg-gray-500" ${!isActive || gameState.coins < upgradeCost ? 'disabled' : ''}>Upgrade (${formatNumber(upgradeCost)}💰)</button>` : `<button data-action="buyCard" data-id="${candidate.id}" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" ${!isActive || gameState.coins < actualBid ? 'disabled' : ''}>${isActive ? `Buy (${formatNumber(actualBid)}💰)` : '<i class="fa fa-lock mr-2"></i> Unavailable'}</button>`}</div>${!isActive ? `<p class="text-xs text-red-400 mt-2 text-center">This candidate is currently inactive. Contact admin for activation.</p>` : ''}</div>`; }).join('')}</div>`; };
 const renderMissionsScreen = () => { return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Daily Missions</h2><div class="space-y-3">${DAILY_MISSIONS.map(mission => { const progress = gameState.missionProgress[mission.id]?.progress || 0; const isCompleted = gameState.completedMissions.includes(mission.id); const percent = isCompleted ? 100 : Math.min(100, (progress / mission.target) * 100); return `<div class="bg-slate-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-white">${mission.title}</h4><span class="text-yellow-400 font-bold">+${formatNumber(mission.reward)} 💰</span></div><p class="text-sm text-gray-400 mb-3">${mission.description}</p><div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: ${percent}%"></div></div><div class="text-right text-xs mt-1 text-gray-300">${isCompleted ? 'Completed' : `${formatNumber(progress)} / ${formatNumber(mission.target)}`}</div></div>`; }).join('')}</div>`; };
-const renderMediaScreen = () => { const activeCandidates = GAME_CONFIG.candidates.filter(c => c.active); const activeParties = Object.entries(GAME_CONFIG.parties).filter(([id, p]) => p.active); const candidateMedia = activeCandidates.map(c => { const hasWatched = gameState.watchedVideos['c' + c.id]; return `<div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center"><img src="${GITHUB_ASSETS_BASE_URL}photos/${c.photo}" alt="${c.name}" class="w-24 h-24 rounded-lg object-cover" onerror="this.src='https://picsum.photos/seed/c${c.id}/100/100'" /><div class="flex-1"><h3 class="font-bold text-lg">${c.name}</h3><p class="text-sm text-gray-400 mb-2">${c.bio || 'No biography available.'}</p><div class="flex gap-2"><button data-action="watchVideo" data-type="candidate" data-id="${c.id}" class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm">${hasWatched ? 'Watch Again' : `Watch Video (+${formatNumber(c.videoReward)}💰)`}</button>${hasWatched ? `<span class="bg-green-600 text-white text-xs px-2 py-2 rounded flex items-center"><i class="fa fa-check mr-1"></i> Rewarded</span>` : ''}</div></div></div>`; }).join(''); const partyMedia = activeParties.map(([id, p]) => { const hasWatched = gameState.watchedVideos['p' + id]; return `<div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center"><img src="${GITHUB_ASSETS_BASE_URL}logos/${p.logo}" alt="${p.name}" class="w-24 h-24 rounded-lg object-contain p-2 bg-slate-700" onerror="this.src='https://picsum.photos/seed/p${id}/100/100'" /><div class="flex-1"><h3 class="font-bold text-lg">${p.name}</h3><p class="text-sm text-gray-400 mb-2">${p.description}</p><div class="flex gap-2"><button data-action="watchVideo" data-type="party" data-id="${id}" class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm">${hasWatched ? 'Watch Again' : `Watch Video (+${formatNumber(p.videoReward)}💰)`}</button>${hasWatched ? `<span class="bg-green-600 text-white text-xs px-2 py-2 rounded flex items-center"><i class="fa fa-check mr-1"></i> Rewarded</span>` : ''}</div></div></div>`; }).join(''); return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Media</h2><div class="space-y-4"><h3 class="font-bold text-lg text-blue-300">Candidates</h3>${candidateMedia || '<p>No active candidate media.</p>'}<h3 class="font-bold text-lg text-blue-300 mt-4">Parties</h3>${partyMedia || '<p>No active party media.</p>'}</div>`; };
+
+// UPDATED: renderMediaScreen to support multiple videos
+const renderMediaScreen = () => { 
+    const activeCandidates = GAME_CONFIG.candidates.filter(c => c.active);
+    const activeParties = Object.entries(GAME_CONFIG.parties).filter(([id, p]) => p.active);
+
+    const candidateMedia = activeCandidates.map(c => {
+        const videos = c.promoVideos || (c.promoVideo ? [{title: "Campaign Video", url: c.promoVideo, reward: c.videoReward}] : []);
+        const totalReward = videos.reduce((sum, video) => sum + video.reward, 0);
+        const watchedCount = videos.filter(video => gameState.watchedVideos['c' + c.id + '_' + videos.indexOf(video)]).length;
+        
+        return `
+        <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
+             <img src="${GITHUB_ASSETS_BASE_URL}photos/${c.photo}" alt="${c.name}" 
+                  class="w-24 h-24 rounded-lg object-cover"
+                  onerror="this.src='https://picsum.photos/seed/c${c.id}/100/100'" />
+             <div class="flex-1">
+                <h3 class="font-bold text-lg">${c.name}</h3>
+                <p class="text-sm text-gray-400 mb-2">${c.bio || 'No biography available.'}</p>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-400">${watchedCount}/${videos.length} videos watched</span>
+                    <span class="text-xs text-yellow-400">Total: +${formatNumber(totalReward)}💰</span>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button data-action="showVideos" data-type="candidate" data-id="${c.id}" 
+                            class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm">
+                        Watch Videos
+                    </button>
+                    ${watchedCount === videos.length && videos.length > 0 ? 
+                        `<span class="bg-green-600 text-white text-xs px-2 py-2 rounded flex items-center"><i class="fa fa-check mr-1"></i> All Rewarded</span>` : 
+                        ''}
+                </div>
+             </div>
+        </div>`;
+    }).join('');
+
+    const partyMedia = activeParties.map(([id, p]) => {
+        const videos = p.promoVideos || (p.promoVideo ? [{title: "Party Video", url: p.promoVideo, reward: p.videoReward}] : []);
+        const totalReward = videos.reduce((sum, video) => sum + video.reward, 0);
+        const watchedCount = videos.filter(video => gameState.watchedVideos['p' + id + '_' + videos.indexOf(video)]).length;
+        
+        return `
+         <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
+             <img src="${GITHUB_ASSETS_BASE_URL}logos/${p.logo}" alt="${p.name}" 
+                  class="w-24 h-24 rounded-lg object-contain p-2 bg-slate-700"
+                  onerror="this.src='https://picsum.photos/seed/p${id}/100/100'" />
+             <div class="flex-1">
+                <h3 class="font-bold text-lg">${p.name}</h3>
+                <p class="text-sm text-gray-400 mb-2">${p.description}</p>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-400">${watchedCount}/${videos.length} videos watched</span>
+                    <span class="text-xs text-yellow-400">Total: +${formatNumber(totalReward)}💰</span>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button data-action="showVideos" data-type="party" data-id="${id}" 
+                            class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm">
+                        Watch Videos
+                    </button>
+                    ${watchedCount === videos.length && videos.length > 0 ? 
+                        `<span class="bg-green-600 text-white text-xs px-2 py-2 rounded flex items-center"><i class="fa fa-check mr-1"></i> All Rewarded</span>` : 
+                        ''}
+                </div>
+             </div>
+        </div>`;
+    }).join('');
+
+    return `
+    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Media</h2>
+    <div class="space-y-4">
+        <h3 class="font-bold text-lg text-blue-300">Candidates</h3>
+        ${candidateMedia || '<p class="text-gray-400 text-sm">No active candidate media available.</p>'}
+        <h3 class="font-bold text-lg text-blue-300 mt-4">Parties</h3>
+        ${partyMedia || '<p class="text-gray-400 text-sm">No active party media available.</p>'}
+    </div>`;
+};
+
 const renderPartyScreen = () => { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Political Parties</h2>${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center"><p class="text-red-300 text-sm">⚠️ Inflation: All costs are ${inflation.toFixed(1)}x higher</p></div>` : ''}<div class="space-y-4">${Object.entries(GAME_CONFIG.parties).map(([id, party]) => { const isActive = party.active; const partyState = gameState.parties[id] || { level: 1, xp: 0 }; const xpPercent = (partyState.xp / (partyState.level * 750)) * 100; const upgradeCost = Math.floor(partyState.level * 8 * inflation); if (!isActive) { return `<div class="p-4 rounded-xl border border-slate-700 bg-slate-900/60 filter-grayscale"><div class="flex gap-4 items-center"><img src="${GITHUB_ASSETS_BASE_URL}logos/${party.logo}" alt="${party.name}" class="w-16 h-16 rounded-full object-contain p-1 border-4 border-slate-600 bg-slate-700" onerror="this.src='https://picsum.photos/seed/party${id}/80/80'" /><div class="flex-1"><h3 class="font-bold text-lg text-gray-500">${party.name}</h3><p class="text-sm text-gray-600">This party is currently inactive.</p></div></div></div>`; } return `<div class="p-4 rounded-xl border border-slate-700 ${party.color || 'bg-slate-800'}"><div class="flex gap-4 items-center"><img src="${GITHUB_ASSETS_BASE_URL}logos/${party.logo}" alt="${party.name}" class="w-16 h-16 rounded-full object-contain p-1 border-4 border-slate-400 bg-slate-800" onerror="this.src='https://picsum.photos/seed/party${id}/80/80'" /><div class="flex-1"><h3 class="font-bold text-lg">${party.name}</h3><p class="text-sm text-gray-200">Level ${partyState.level}</p></div></div><p class="text-sm text-gray-200 my-3">${party.description}</p><div class="text-xs text-gray-200">XP: ${formatNumber(partyState.xp)} / ${formatNumber(partyState.level * 750)}</div><div class="w-full bg-gray-600 rounded-full h-2 mb-3"><div class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: ${xpPercent}%"></div></div><div class="flex gap-2"><button data-action="investParty" data-id="${id}" class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">Invest (2k💰)</button><button data-action="upgradeParty" data-id="${id}" class="w-1/2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded disabled:bg-gray-500" ${gameState.influenceTokens < upgradeCost ? 'disabled' : ''}>Upgrade (${formatNumber(upgradeCost)}💎)</button></div></div>`; }).join('')}</div>`; };
 const renderStoreScreen = () => { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Store</h2>${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center"><p class="text-red-300 text-sm">⚠️ Inflation: All costs are ${inflation.toFixed(1)}x higher</p></div>` : ''}<div class="space-y-4"><div><h3 class="font-bold text-lg text-blue-300 mb-2">Staff</h3>${GAME_CONFIG.managers.map(manager => { const actualCost = Math.floor(manager.cost * inflation); return `<div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2"><div><h4 class="font-bold text-white"><span class="text-2xl">${manager.icon}</span> ${manager.name}</h4><p class="text-sm text-gray-400">${manager.description}</p>${inflation > 1 ? `<p class="text-xs text-red-400">Base cost: ${formatNumber(manager.cost)}💰</p>` : ''}</div><button data-action="buyManager" data-id="${manager.id}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.managerCards.includes(manager.id) || gameState.coins < actualCost ? 'disabled' : ''}>${gameState.managerCards.includes(manager.id) ? 'Hired' : `Hire (${formatNumber(actualCost)}💰)`}</button></div>`; }).join('')}</div><div><h3 class="font-bold text-lg text-purple-400 mb-2">Boosts</h3>${BOOSTS.map(boost => { const actualCost = Math.floor(boost.cost * inflation); return `<div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2"><div><h4 class="font-bold text-white"><span class="text-2xl">${boost.icon}</span> ${boost.name}</h4><p class="text-sm text-gray-400">${boost.duration > 0 ? `${boost.duration} seconds` : 'Instant effect'}</p>${inflation > 1 ? `<p class="text-xs text-red-400">Base cost: ${formatNumber(boost.cost)}💰</p>` : ''}</div><button data-action="activateBoost" data-id="${boost.id}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.coins < actualCost ? 'disabled' : ''}>Activate (${formatNumber(actualCost)}💰)</button></div>`; }).join('')}</div></div>`; };
 
@@ -336,7 +411,7 @@ const renderModal = (title, content, showClose = true) => { document.getElementB
 const closeModal = () => { document.getElementById('modalContainer').innerHTML = ''; };
 
 // ==========================================
-// ⚡ ACTION HANDLERS (Original)
+// ⚡ ACTION HANDLERS (Updated for multiple videos)
 // ==========================================
 const handleAction = (e) => {
     const target = e.target.closest('[data-action]');
@@ -346,63 +421,92 @@ const handleAction = (e) => {
         closeModal,
         buyCard: () => { const c = GAME_CONFIG.candidates.find(c => c.id == id); if (!c) { showNotification("Candidate not found!", "error"); return; } if (!c.active) { showNotification("This candidate is not active!", "error"); return; } const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const actualBid = Math.floor(c.bid * inflation); if (gameState.coins >= actualBid) { gameState.coins -= actualBid; gameState.userCards.push({ id: parseInt(id), level: 1 }); showNotification(`Hired ${c.name}!`, 'success'); checkAchievements(); updateAll(); } else { showNotification(`Need ${formatNumber(actualBid)} coins!`, "error"); } },
         upgradeCard: () => { const uc = gameState.userCards.find(uc => uc.id == id); const c = GAME_CONFIG.candidates.find(c => c.id == id); if (!c.active) { showNotification("Cannot upgrade an inactive candidate!", "error"); return; } if(uc) { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const upgradeCost = Math.floor(c.bid * uc.level * 2 * inflation); if (gameState.coins >= upgradeCost) { gameState.coins -= upgradeCost; uc.level++; showNotification(`${c.name} upgraded to Lv.${uc.level}!`, 'success'); checkMissionProgress('level', uc.level); updateAll(); } else { showNotification(`Need ${formatNumber(upgradeCost)} coins!`, "error"); } } },
-        // FIXED: watchVideo function with improved YouTube URL parsing
-watchVideo: () => {
-    const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
-    const watchId = (type === 'candidate' ? 'c' : 'p') + id;
-    
-    if (item) {
-        // Fix YouTube URL - convert shorts to embed format
-        let videoUrl = item.promoVideo;
-        
-        // Handle YouTube Shorts URLs
-        if (videoUrl.includes('youtube.com/shorts/')) {
-            const videoId = videoUrl.split('/shorts/')[1].split('?')[0];
-            videoUrl = `https://www.youtube.com/embed/${videoId}`;
-        }
-        // Handle regular YouTube watch URLs
-        else if (videoUrl.includes('watch?v=')) {
-            videoUrl = videoUrl.replace("watch?v=", "embed/");
-        }
-        // Handle youtu.be short URLs
-        else if (videoUrl.includes('youtu.be/')) {
-            const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
-            videoUrl = `https://www.youtube.com/embed/${videoId}`;
-        }
-        // If it's already an embed URL, use as-is
-        else if (!videoUrl.includes('embed')) {
-            // Fallback: try to extract video ID from various formats
-            const videoId = videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-            if (videoId) {
-                videoUrl = `https://www.youtube.com/embed/${videoId[1]}`;
+        // NEW: showVideos function to display multiple videos
+        showVideos: () => {
+            const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
+            const videos = item.promoVideos || (item.promoVideo ? [{title: "Campaign Video", url: item.promoVideo, reward: item.videoReward}] : []);
+            
+            if (!videos || videos.length === 0) {
+                showNotification("No videos available for this item.", "error");
+                return;
             }
-        }
 
-        const hasWatched = gameState.watchedVideos[watchId];
-        const rewardText = hasWatched ? 
-            'Watch again (No reward)' : 
-            `Watch Video (+${formatNumber(item.videoReward)}💰)`;
-        
-        const content = `
-            <div class="aspect-w-16 aspect-h-9">
-                <iframe src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-64 rounded"></iframe>
-            </div>
-            <div class="flex gap-2 mt-4">
-                <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" 
-                        class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded ${hasWatched ? 'opacity-50 cursor-not-allowed' : ''}" 
-                        ${hasWatched ? 'disabled' : ''}>
-                    ${hasWatched ? 'Already Rewarded' : `Claim ${formatNumber(item.videoReward)}💰`}
-                </button>
-                <button data-action="closeModal" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">
-                    Close
-                </button>
-            </div>
-            ${hasWatched ? `<p class="text-center text-green-400 text-sm mt-2">You can watch this video anytime, but rewards are only given once.</p>` : ''}
-        `;
-        renderModal(`${item.name} - Campaign Video`, content, false);
-    }
-},
-        claimVideoReward: () => { const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id]; const watchId = (type === 'candidate' ? 'c' : 'p') + id; if (item && !gameState.watchedVideos[watchId]) { gameState.coins += item.videoReward; gameState.totalLifetimeCoins += item.videoReward; gameState.watchedVideos[watchId] = true; showNotification(`Watched video, +${formatNumber(item.videoReward)}💰!`, 'success'); closeModal(); updateAll(); } },
+            const videosHTML = videos.map((video, index) => {
+                const videoId = (type === 'candidate' ? 'c' : 'p') + id + '_' + index;
+                const hasWatched = gameState.watchedVideos[videoId];
+                
+                // Fix YouTube URL - convert shorts to embed format
+                let videoUrl = video.url;
+                
+                // Handle YouTube Shorts URLs
+                if (videoUrl.includes('youtube.com/shorts/')) {
+                    const videoId = videoUrl.split('/shorts/')[1].split('?')[0];
+                    videoUrl = `https://www.youtube.com/embed/${videoId}`;
+                }
+                // Handle regular YouTube watch URLs
+                else if (videoUrl.includes('watch?v=')) {
+                    videoUrl = videoUrl.replace("watch?v=", "embed/");
+                }
+                // Handle youtu.be short URLs
+                else if (videoUrl.includes('youtu.be/')) {
+                    const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+                    videoUrl = `https://www.youtube.com/embed/${videoId}`;
+                }
+                // If it's already an embed URL, use as-is
+                else if (!videoUrl.includes('embed')) {
+                    // Fallback: try to extract video ID from various formats
+                    const videoIdMatch = videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+                    if (videoIdMatch) {
+                        videoUrl = `https://www.youtube.com/embed/${videoIdMatch[1]}`;
+                    }
+                }
+
+                return `
+                <div class="mb-6 p-4 bg-slate-700 rounded-lg">
+                    <h4 class="font-bold text-lg mb-2">${video.title}</h4>
+                    <div class="aspect-w-16 aspect-h-9 mb-3">
+                        <iframe src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-48 rounded"></iframe>
+                    </div>
+                    <div class="flex gap-2">
+                        <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" data-index="${index}" 
+                                class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded ${hasWatched ? 'opacity-50 cursor-not-allowed' : ''}" 
+                                ${hasWatched ? 'disabled' : ''}>
+                            ${hasWatched ? 'Already Rewarded' : `Claim ${formatNumber(video.reward)}💰`}
+                        </button>
+                    </div>
+                    ${hasWatched ? `<p class="text-center text-green-400 text-sm mt-2">Reward already claimed</p>` : ''}
+                </div>`;
+            }).join('');
+
+            const content = `
+                <div class="max-h-[70vh] overflow-y-auto">
+                    ${videosHTML}
+                </div>
+                <div class="mt-4">
+                    <button data-action="closeModal" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">
+                        Close
+                    </button>
+                </div>
+            `;
+            renderModal(`${item.name} - Campaign Videos`, content, false);
+        },
+        // UPDATED: claimVideoReward to handle multiple videos
+        claimVideoReward: () => {
+            const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
+            const videoIndex = parseInt(target.dataset.index);
+            const videos = item.promoVideos || (item.promoVideo ? [{title: "Campaign Video", url: item.promoVideo, reward: item.videoReward}] : []);
+            const video = videos[videoIndex];
+            const videoId = (type === 'candidate' ? 'c' : 'p') + id + '_' + videoIndex;
+            
+            if (video && !gameState.watchedVideos[videoId]) {
+                gameState.coins += video.reward;
+                gameState.totalLifetimeCoins += video.reward;
+                gameState.watchedVideos[videoId] = true;
+                showNotification(`Watched "${video.title}", +${formatNumber(video.reward)}💰!`, 'success');
+                closeModal();
+                updateAll();
+            }
+        },
         investParty: () => { const party = GAME_CONFIG.parties[id]; const partyState = gameState.parties[id]; if (!party.active) { showNotification("This party is currently inactive!", "error"); return; } const investmentAmount = 2000; if (partyState && gameState.coins >= investmentAmount) { gameState.coins -= investmentAmount; partyState.xp += 150; partyState.totalInvestment += investmentAmount; if(partyState.xp >= partyState.level * 750) { partyState.xp -= partyState.level * 750; partyState.level++; showNotification(`${party.name} leveled up to Lv.${partyState.level}!`, 'success'); } updateAll(); } else { showNotification(`Need ${formatNumber(investmentAmount)} coins!`, "error"); } },
         upgradeParty: () => { const party = GAME_CONFIG.parties[id]; const partyState = gameState.parties[id]; const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const upgradeCost = Math.floor(partyState.level * 8 * inflation); if (!party.active) { showNotification("Cannot upgrade an inactive party!", "error"); return; } if(partyState && gameState.influenceTokens >= upgradeCost) { gameState.influenceTokens -= upgradeCost; partyState.level++; showNotification(`${party.name} upgraded to Lv.${partyState.level}!`, 'success'); updateAll(); } else { showNotification(`Need ${formatNumber(upgradeCost)} influence tokens!`, "error"); } },
         buyManager: () => { const m = GAME_CONFIG.managers.find(m => m.id === id); const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const actualCost = Math.floor(m.cost * inflation); if(m && gameState.coins >= actualCost && !gameState.managerCards.includes(id)) { gameState.coins -= actualCost; gameState.managerCards.push(id); showNotification(`Hired ${m.name} for ${formatNumber(actualCost)}💰!`, 'success'); updateAll(); } else if (gameState.managerCards.includes(id)) { showNotification("You already hired this manager!", "info"); } else { showNotification(`Need ${formatNumber(actualCost)} coins!`, "error"); } },
