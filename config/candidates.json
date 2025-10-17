@@ -1,38 +1,25 @@
 [
   {
-    "id": 1,
-    "name": "Halat Salaman Berwari",
+    "id": 2,
+    "name": "Rebwar Hadi",
     "party": "p1",
-    "campaign": "KDP",
-    "baseBonus": 1,
-    "bid": 1000,
-    "maxLevel": 10,
-    "logoColor": "border-red-500",
-    "policy": "Financial reform.",
-    "approval": 75,
-    "logo": "💰",
-    "specialAbility": "Critical Tap: 5% chance for 3x funds",
-    "abilityType": "critical",
-    "photo": "Halat.jpg",
-    "promoVideos": [
-      {
-        "title": "Campaign Speech",
-        "url": "https://youtube.com/shorts/pRm3joE0E_4?si=G3TYGr93N-h1S5_8",
-        "reward": 500
-      },
-      {
-        "title": "Interview", 
-        "url": "https://youtube.com/embed/video2",
-        "reward": 300
-      }
-    ],
-    "videoReward": 500
-  }
-]
-    "bio": "Former minister known for anti-corruption efforts.",
-    "profitPerHour": 100,
-    "active": true,
-    "sponsored": false
+    "campaign": "State Administration",
+    "baseBonus": 2,
+    "bid": 2000,
+    "maxLevel": 15,
+    "logoColor": "border-blue-500",
+    "policy": "Infrastructure development and public services",
+    "approval": 80,
+    "logo": "🏛️",
+    "specialAbility": "Double Rewards: Daily goals give 2x rewards",
+    "abilityType": "doubleRewards",
+    "photo": "rebwarHadi.jpg",
+    "promoVideo": "https://youtube.com/shorts/pRm3joE0E_4?si=G3TYGr93N-h1S5_8",
+    "videoReward": 8000,
+    "bio": "Current Prime Minister focusing on service reform.",
+    "profitPerHour": 150,
+    "active": false,
+    "sponsored": true
   },
   {
     "id": 2,
