@@ -1,7 +1,7 @@
 [
   {
     "id": 1,
-    "name": "Rebwar Hadi",
+    "name": "Halat Salman",
     "party": "p1",
     "campaign": "State Administration",
     "baseBonus": 2,
@@ -13,7 +13,7 @@
     "logo": "🏛️",
     "specialAbility": "Double Rewards: Daily goals give 2x rewards",
     "abilityType": "doubleRewards",
-    "photo": "rebwarHadi.jpg",
+    "photo": "Halat.jpg",
     "promoVideo": "https://youtube.com/shorts/pRm3joE0E_4?si=G3TYGr93N-h1S5_8",
     "videoReward": 8000,
     "bio": "Current Prime Minister focusing on service reform.",
