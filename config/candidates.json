@@ -76,6 +76,11 @@
     "abilityType": "energyBoost",
     "photo": "Sadr.jpg",
     "promoVideos": [
+            {
+        "title": "Campaign Speech",
+        "url": "https://www.youtube.com/embed/pRm3joE0E_4",
+        "reward": 500
+      },
       {
         "title": "Campaign Video",
         "url": "https://www.youtube.com/embed/example2",
