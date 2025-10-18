@@ -1,25 +1,36 @@
 [
   {
     "id": 1,
-    "name": "Halat Salman",
+    "name": "Halat Salaman Berwari",
     "party": "p1",
-    "campaign": "State Administration",
-    "baseBonus": 2,
-    "bid": 2000,
-    "maxLevel": 15,
-    "logoColor": "border-blue-500",
-    "policy": "Infrastructure development and public services",
-    "approval": 80,
-    "logo": "🏛️",
-    "specialAbility": "Double Rewards: Daily goals give 2x rewards",
-    "abilityType": "doubleRewards",
+    "campaign": "KDP",
+    "baseBonus": 1,
+    "bid": 1000,
+    "maxLevel": 10,
+    "logoColor": "border-red-500",
+    "policy": "Financial reform.",
+    "approval": 75,
+    "logo": "💰",
+    "specialAbility": "Critical Tap: 5% chance for 3x funds",
+    "abilityType": "critical",
     "photo": "Halat.jpg",
-    "promoVideo": "https://youtube.com/shorts/pRm3joE0E_4?si=G3TYGr93N-h1S5_8",
-    "videoReward": 8000,
-    "bio": "Current Prime Minister focusing on service reform.",
-    "profitPerHour": 150,
-    "active": false,
-    "sponsored": true
+    "promoVideos": [
+      {
+        "title": "Campaign Speech",
+        "url": "https://www.youtube.com/embed/pRm3joE0E_4",
+        "reward": 500
+      },
+      {
+        "title": "Interview", 
+        "url": "https://www.youtube.com/embed/video2",
+        "reward": 300
+      }
+    ],
+    "videoReward": 800,
+    "bio": "Former minister known for anti-corruption efforts.",
+    "profitPerHour": 100,
+    "active": true,
+    "sponsored": false
   },
   {
     "id": 2,
@@ -36,7 +47,13 @@
     "specialAbility": "Double Rewards: Daily goals give 2x rewards",
     "abilityType": "doubleRewards",
     "photo": "rebwarHadi.jpg",
-    "promoVideo": "https://youtube.com/shorts/pRm3joE0E_4?si=G3TYGr93N-h1S5_8",
+    "promoVideos": [
+      {
+        "title": "Campaign Video",
+        "url": "https://www.youtube.com/embed/pRm3joE0E_4",
+        "reward": 8000
+      }
+    ],
     "videoReward": 8000,
     "bio": "Current Prime Minister focusing on service reform.",
     "profitPerHour": 150,
@@ -58,7 +75,13 @@
     "specialAbility": "Energy Boost: +20% faster energy regeneration",
     "abilityType": "energyBoost",
     "photo": "Sadr.jpg",
-    "promoVideo": "https://www.youtube.com/embed/example2",
+    "promoVideos": [
+      {
+        "title": "Campaign Video",
+        "url": "https://www.youtube.com/embed/example2",
+        "reward": 10000
+      }
+    ],
     "videoReward": 10000,
     "bio": "Influential cleric and political leader.",
     "profitPerHour": 200,
@@ -80,7 +103,13 @@
     "specialAbility": "Investment Bonus: +15% to all investments",
     "abilityType": "investmentBonus",
     "photo": "Avesta.jpg",
-    "promoVideo": "https://www.youtube.com/embed/example3",
+    "promoVideos": [
+      {
+        "title": "Campaign Video",
+        "url": "https://www.youtube.com/embed/example3",
+        "reward": 9000
+      }
+    ],
     "videoReward": 9000,
     "bio": "Prime Minister of Kurdistan Regional Government.",
     "profitPerHour": 180,
@@ -102,7 +131,13 @@
     "specialAbility": "Combo Master: Combo timer extended by 50%",
     "abilityType": "comboMaster",
     "photo": "Amiri.jpg",
-    "promoVideo": "https://www.youtube.com/embed/example4",
+    "promoVideos": [
+      {
+        "title": "Campaign Video",
+        "url": "https://www.youtube.com/embed/example4",
+        "reward": 12000
+      }
+    ],
     "videoReward": 12000,
     "bio": "Leader of Badr Organization and political figure.",
     "profitPerHour": 250,
@@ -124,7 +159,13 @@
     "specialAbility": "Tap Storm: 10% chance for 10 rapid taps",
     "abilityType": "tapStorm",
     "photo": "Abadi.jpg",
-    "promoVideo": "https://www.youtube.com/embed/example5",
+    "promoVideos": [
+      {
+        "title": "Campaign Video",
+        "url": "https://www.youtube.com/embed/example5",
+        "reward": 7500
+      }
+    ],
     "videoReward": 7500,
     "bio": "Former Prime Minister during ISIS conflict.",
     "profitPerHour": 160,
@@ -146,7 +187,13 @@
     "specialAbility": "Wealth Multiplier: +25% to all coin earnings",
     "abilityType": "wealthMultiplier",
     "photo": "Maliki.jpg",
-    "promoVideo": "https://www.youtube.com/embed/example6",
+    "promoVideos": [
+      {
+        "title": "Campaign Video",
+        "url": "https://www.youtube.com/embed/example6",
+        "reward": 11000
+      }
+    ],
     "videoReward": 11000,
     "bio": "Former Prime Minister and political veteran.",
     "profitPerHour": 220,
