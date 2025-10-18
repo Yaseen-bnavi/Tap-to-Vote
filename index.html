@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     
-    <!-- === STEP 1: FIREBASE SDKs (Added) === -->
+    <!-- === FIREBASE SDKs === -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <!-- ==================================== -->
@@ -101,8 +101,7 @@
         <i class="fa fa-cog"></i>
     </button>
 
-    <header id="header" class="w-full mb-4 p-4 bg-slate-800/80 rounded-xl shadow-2xl border border-slate-700/50 sticky top-4 z-30">
-    </header>
+    <header id="header" class="w-full mb-4 p-4 bg-slate-800/80 rounded-xl shadow-2xl border border-slate-700/50 sticky top-4 z-30"></header>
 
     <main class="w-full flex-grow">
         <div id="tap" class="tab-content flex flex-col items-center"></div>
@@ -110,47 +109,45 @@
         <div id="missions" class="tab-content hidden"></div>
         <div id="media" class="tab-content hidden"></div>
         <div id="party" class="tab-content hidden"></div>
+        <div id="friends" class="tab-content hidden"></div> <!-- ADDED: Friends Tab Content -->
         <div id="store" class="tab-content hidden"></div>
         <div id="leaderboard" class="tab-content hidden"></div>
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto w-full flex justify-around p-2 border-t border-gray-700/50 rounded-t-xl z-40 bg-[#0f172a]">
-    </nav>
+    <nav class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto w-full flex justify-around p-2 border-t border-gray-700/50 rounded-t-xl z-40 bg-[#0f172a]"></nav>
     
     <div id="modalContainer"></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-// === STEP 2: FIREBASE INITIALIZATION (Added) ===
-// Your config from the previous message
-const firebaseConfig = {
-  apiKey: "AIzaSyB2_crTy9dmsS7SpR-8r5fBY-xHuuUAPZM",
-  authDomain: "campaign-simulator-game.firebaseapp.com",
-  projectId: "campaign-simulator-game",
-  storageBucket: "campaign-simulator-game.firebasestorage.app",
-  messagingSenderId: "1031367881969",
-  appId: "1:1031367881969:web:ef37beeab2904143926550"
-};
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-// ===============================================
+// === FIREBASE INITIALIZATION ===
+let db;
+try {
+    const firebaseConfig = {
+      apiKey: "AIzaSyB2_crTy9dmsS7SpR-8r5fBY-xHuuUAPZM",
+      authDomain: "campaign-simulator-game.firebaseapp.com",
+      projectId: "campaign-simulator-game",
+      storageBucket: "campaign-simulator-game.firebasestorage.app",
+      messagingSenderId: "1031367881969",
+      appId: "1:1031367881969:web:ef37beeab2904143926550"
+    };
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+} catch (error) {
+    console.error("Firebase initialization failed:", error);
+}
 
-
-// ==========================================
-// 🎯 GAME CONFIGURATION (Original)
-// ==========================================
+// === GAME CONFIGURATION ===
 const GITHUB_ASSETS_BASE_URL = 'https://raw.githubusercontent.com/Yaseen-bnavi/Tap-to-Vote/main/';
 const CONFIG_URLS = {
     parties: `${GITHUB_ASSETS_BASE_URL}config/parties.json`,
     candidates: `${GITHUB_ASSETS_BASE_URL}config/candidates.json`,
     managers: `${GITHUB_ASSETS_BASE_URL}config/managers.json`
 };
+const CONFIG_LOAD_TIMEOUT = 8000; // 8 seconds
 
-// ==========================================
-// 🎮 GAME CONSTANTS (Original)
-// ==========================================
+// === GAME CONSTANTS ===
 const TCI_SCALING = { COINS: 50000, CARD_LEVEL: 25, PARTY_LEVEL: 100 };
 const ENERGY_MAX = 80;
 const ENERGY_REGEN_RATE = 0.8;
@@ -159,33 +156,27 @@ const STREAK_BONUS = [0, 2, 5, 8, 12, 17, 23, 30, 38, 50];
 const DAILY_GOAL = 150;
 const DAILY_REWARD_COINS = 2000;
 const DAILY_REWARD_TOKENS = 1;
+const REFERRAL_BONUS_COINS = 5000; // ADDED: For referral system
 const getInflationMultiplier = (totalLifetimeCoins) => { const milestones = [10000, 50000, 200000, 1000000, 5000000]; let multiplier = 1; milestones.forEach(milestone => { if (totalLifetimeCoins > milestone) multiplier += 0.5; }); return Math.min(multiplier, 4); };
 const ACHIEVEMENTS = [ { id: 'taps1', type: 'taps', threshold: 500, title: "First Steps", description: "Reach 500 total taps", reward: 1000 }, { id: 'taps2', type: 'taps', threshold: 2500, title: "Getting Serious", description: "Reach 2,500 total taps", reward: 5000 }, { id: 'taps3', type: 'taps', threshold: 10000, title: "Dedicated Campaigner", description: "Reach 10,000 total taps", reward: 20000 }, { id: 'coins1', type: 'coins', threshold: 50000, title: "Wealthy Backer", description: "Accumulate 50,000 coins", reward: 10000 }, { id: 'coins2', type: 'coins', threshold: 250000, title: "Financial Mogul", description: "Accumulate 250,000 coins", reward: 50000 }, { id: 'cards1', type: 'cards', threshold: 3, title: "Building a Team", description: "Own 3 candidate cards", reward: 5000 }, { id: 'cards2', type: 'cards', threshold: 7, title: "Political Machine", description: "Own 7 candidate cards", reward: 25000 }, ];
 const DAILY_MISSIONS = [ { id: 1, type: 'taps', target: 100, reward: 500, title: "Tap 100 Times", description: "Basic tapping mission" }, { id: 2, type: 'taps', target: 500, reward: 2000, title: "Tap 500 Times", description: "Advanced tapping mission" }, { id: 3, type: 'coins', target: 25000, reward: 1000, title: "Earn 25,000 Funds", description: "Wealth accumulation" }, { id: 4, type: 'level', target: 5, reward: 1500, title: "Upgrade a Card to Lv.5", description: "Strengthen your team" }, { id: 5, type: 'cards', target: 2, reward: 1000, title: "Acquire 2 Candidates", description: "Expand your influence" }, ];
 const BOOSTS = [ { id: 'boost_2x', name: "2x Multiplier", duration: 30, cost: 10000, multiplier: 2, icon: '⚡' }, { id: 'boost_energy', name: "Energy Refill", duration: 0, cost: 5000, energy: 40, icon: '🔋' }, { id: 'boost_combo', name: "Combo Extender", duration: 45, cost: 8000, comboTime: 3000, icon: '🎯' }, ];
+const FALLBACK_CONFIG = { parties: { p1: { name: "Sairoon Current", logo: "party1.png", color: "bg-red-700/80", description: "A cross-sectarian alliance.", photo: "party1.png", active: true, promoVideos: [{title: "Default Video", url: "https://www.youtube.com/embed/P_wKDMcr16g", reward: 1500}], videoReward: 1500 } }, candidates: [ { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 2000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: "⭐", photo: "candidate1.jpg", promoVideos: [{title: "Default Video", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", reward: 500}], videoReward: 500, bio: "Default candidate bio.", profitPerHour: 5, active: true, sponsored: false } ], managers: [ { id: 'm1', name: "Default Manager", icon: '📱', description: "Default manager description", effect: 1.1, cost: 10000 } ] };
 
-// ==========================================
-// 🎲 GAME STATE (Original)
-// ==========================================
+// === GAME STATE ===
 let GAME_CONFIG = { parties: {}, candidates: [], managers: [] };
 let gameState;
 let activeTab = 'tap';
 let telegramUser = null;
 
-// ==========================================
-// 🛠️ UTILITY FUNCTIONS (Original)
-// ==========================================
+// === UTILITY FUNCTIONS ===
 const formatNumber = (num) => { if (isNaN(num) || num === null) return '0'; if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`; if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`; return Math.floor(num).toString(); };
 const getTodayString = () => new Date().toISOString().split('T')[0];
 const showNotification = (text, type = 'info', duration = 3000) => { const existingNotification = document.querySelector('.notification'); if (existingNotification) { existingNotification.remove(); } const notification = document.createElement('div'); notification.className = `notification ${type}`; notification.innerHTML = `<div class="flex items-start"><div class="flex-1"><p class="text-sm font-medium text-white">${text}</p></div><button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-400 hover:text-white"><i class="fa fa-times"></i></button></div>`; document.body.appendChild(notification); setTimeout(() => { if (notification.parentElement) { notification.remove(); } }, duration); };
-const showMessage = (text, type = 'info') => { showNotification(text, type, 4000); };
 
-// ==========================================
-// ☁️ NEW: FIREBASE SYNC FUNCTION
-// ==========================================
+// === FIREBASE SYNC (ENHANCED) ===
 const syncWithFirebase = async () => {
-    if (!gameState || !gameState.userId) return;
-
+    if (!gameState || !gameState.userId || !db) return;
     try {
         const userRef = db.collection("leaderboard").doc(gameState.userId);
         const playerData = {
@@ -194,225 +185,179 @@ const syncWithFirebase = async () => {
             username: telegramUser?.username || gameState.telegramUsername || 'Anonymous',
             funds: gameState.coins,
             tokens: gameState.influenceTokens,
-            influence: calculateTCI(gameState), // Calculate the score fresh
+            influence: calculateTCI(gameState),
+            referralScore: gameState.referralScore || 0,
+            contactName: gameState.contactName || '', // ADDED
+            contactInfo: gameState.contactInfo || '', // ADDED
             lastUpdated: new Date().toISOString()
         };
-        
-        await userRef.set(playerData, { merge: true }); // Use set with merge to create or update
+        await userRef.set(playerData, { merge: true });
         console.log('✅ Data synced to Firebase');
     } catch (error) {
         console.error('❌ Failed to sync with Firebase:', error);
     }
 };
 
-// ==========================================
-// 📁 CONFIGURATION LOADING (Original)
-// ==========================================
+// === CONFIGURATION LOADING (ENHANCED with Timeout and Fallback) ===
 const loadExternalConfig = async () => {
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Config loading timed out')), CONFIG_LOAD_TIMEOUT));
     try {
-        console.log('Loading external configuration...');
-        const [partiesResponse, candidatesResponse, managersResponse] = await Promise.all([ fetch(CONFIG_URLS.parties), fetch(CONFIG_URLS.candidates), fetch(CONFIG_URLS.managers) ]);
-        if (!partiesResponse.ok) throw new Error('Failed to load parties'); if (!candidatesResponse.ok) throw new Error('Failed to load candidates'); if (!managersResponse.ok) throw new Error('Failed to load managers');
-        GAME_CONFIG.parties = await partiesResponse.json(); GAME_CONFIG.candidates = await candidatesResponse.json(); GAME_CONFIG.managers = await managersResponse.json();
-        console.log('✅ All external config loaded successfully!');
+        const responses = await Promise.race([Promise.all([fetch(CONFIG_URLS.parties), fetch(CONFIG_URLS.candidates), fetch(CONFIG_URLS.managers)]), timeoutPromise]);
+        for (const response of responses) { if (!response.ok) throw new Error(`Failed to load config file`); }
+        const [partiesData, candidatesData, managersData] = await Promise.all(responses.map(res => res.json()));
+        GAME_CONFIG = { parties: partiesData, candidates: candidatesData, managers: managersData };
+        console.log('✅ External config loaded!');
     } catch (error) {
         console.error('❌ Error loading external config:', error);
-        showNotification('Failed to load game data. Using default configuration.', 'error');
-        GAME_CONFIG = { parties: { p1: { name: "Sairoon Current", logo: "party1.png", color: "bg-red-700/80", description: "A cross-sectarian alliance.", photo: "party1.png", active: true, promoVideos: [{title: "Default Video", url: "https://www.youtube.com/embed/P_wKDMcr16g", reward: 1500}], videoReward: 1500 } }, candidates: [ { id: 1, name: "Default Candidate", party: "p1", campaign: "Default Campaign", baseBonus: 1, bid: 2000, maxLevel: 5, logoColor: "border-blue-500", policy: "Default policy.", approval: 50, logo: "⭐", photo: "candidate1.jpg", promoVideos: [{title: "Default Video", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", reward: 500}], videoReward: 500, bio: "Default candidate bio.", profitPerHour: 5, active: true, sponsored: false } ], managers: [ { id: 'm1', name: "Default Manager", icon: '📱', description: "Default manager description", effect: 1.1, cost: 10000 } ] };
+        showNotification('Using default game configuration.', 'error');
+        GAME_CONFIG = FALLBACK_CONFIG;
     }
 };
 
-// ==========================================
-// 🎯 CORE GAME LOGIC (Original)
-// ==========================================
+// === CORE GAME LOGIC (Original + Enhancements) ===
 const calculatePPH = (state) => { let totalPPH = 0; if (!state || !state.userCards) return 0; const inflation = getInflationMultiplier(state.totalLifetimeCoins); state.userCards.forEach(card => { const candidate = GAME_CONFIG.candidates.find(c => c.id === card.id); if (candidate) { let profit = (candidate.profitPerHour * card.level) / inflation; state.managerCards.forEach(managerId => { const manager = GAME_CONFIG.managers.find(m => m.id === managerId); if (manager) profit *= (1 + (manager.effect - 1) * 0.7); }); totalPPH += profit; } }); return Math.floor(totalPPH); };
 const calculateTCI = (state) => { if (!state) return 0; const coinsTCI = Math.pow(state.totalLifetimeCoins || 0, 0.7) / TCI_SCALING.COINS; const cardsTCI = Math.pow(state.userCards?.reduce((acc, card) => acc + (card.level || 1), 0) || 0, 1.2) * TCI_SCALING.CARD_LEVEL; const partiesTCI = Math.pow(Object.values(state.parties)?.reduce((acc, party) => acc + (party.level || 1), 0) || 0, 1.1) * TCI_SCALING.PARTY_LEVEL; return Math.floor(coinsTCI + cardsTCI + partiesTCI); };
 const calculateTapPower = (state) => { if (!state) return 1; const inflation = getInflationMultiplier(state.totalLifetimeCoins); let basePower = 1 + (state.userCards?.reduce((acc, card) => { const c = GAME_CONFIG.candidates.find(c => c.id === card.id); return acc + (c ? c.baseBonus * Math.sqrt(card.level || 1) : 0); }, 0) || 0); let partyMultiplier = 1 + (Object.values(state.parties)?.reduce((acc, p) => acc + (p.level > 1 ? ((GAME_CONFIG.parties[p.id]?.multiplier || 1.03) - 1) * Math.log(p.level + 1) : 0), 0) || 0); const boostMultiplier = state.activeBoosts?.reduce((acc, b) => acc * (b.multiplier || 1), 1) || 1; const streakBonus = 1 + (STREAK_BONUS[state.streak || 0] / 100); return Math.floor((basePower * partyMultiplier * boostMultiplier * streakBonus) / Math.sqrt(inflation)); };
 
-// MODIFIED: saveGameState now calls syncWithFirebase
-const saveGameState = () => {
-    if(!gameState) return;
+const saveGameState = () => { if(!gameState) return; try { gameState.lastPlayTime = Date.now(); localStorage.setItem('campaignSimulatorSave', JSON.stringify(gameState)); syncWithFirebase(); } catch (e) { console.warn("Could not save game state.", e); } };
+
+const generateReferralCode = (userId) => 'ref_' + userId.substring(5, 11);
+
+const createDefaultGameState = () => {
+    const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+    return {
+        userId: userId,
+        coins: 500, influenceTokens: 0, dailyTaps: 0, totalTaps: 0, totalLifetimeCoins: 500, userCards: [], parties: {},
+        lastDailyRewardDate: null, watchedVideos: {}, managerCards: [], lastPlayTime: Date.now(), achievements: [],
+        energy: ENERGY_MAX, lastEnergyUpdate: Date.now(), combo: 0, lastTapTime: 0, streak: 0, lastLoginDate: null,
+        activeBoosts: [], completedMissions: [], missionProgress: DAILY_MISSIONS.reduce((acc, m) => ({...acc, [m.id]: {progress: 0}}), {}),
+        telegramUsername: 'user_' + Math.random().toString(36).substr(2, 6), telegramId: null, appVersion: '2.5.0-final',
+        referralCode: generateReferralCode(userId), referredBy: null, referrals: 0, referralScore: 0,
+        contactName: '', contactInfo: '', // ADDED
+    };
+};
+
+const handleReferral = (state) => {
     try {
-        gameState.lastPlayTime = Date.now();
-        localStorage.setItem('campaignSimulatorSave', JSON.stringify(gameState));
-        saveToLeaderboard();
-        syncWithFirebase(); // ADDED THIS LINE
-    } catch (e) {
-        console.warn("Could not save game state to localStorage.", e);
+        const urlParams = new URLSearchParams(window.location.search);
+        const refCode = urlParams.get('ref');
+        if (refCode) {
+            state.referredBy = refCode;
+            state.coins += REFERRAL_BONUS_COINS;
+            state.totalLifetimeCoins += REFERRAL_BONUS_COINS;
+            // NOTE: Logic to credit the referrer would ideally be handled server-side upon validation.
+            // For now, we increment the referrer's score client-side when they play.
+            showNotification(`Welcome! You got a ${formatNumber(REFERRAL_BONUS_COINS)}💰 referral bonus!`, 'success');
+        }
+    } catch(error) {
+        console.warn("Could not process referral link.", error);
     }
 };
 
-// This local leaderboard is fine to keep, Firebase is for the global one
-const saveToLeaderboard = () => { try { const leaderboardData = JSON.parse(localStorage.getItem('campaignLeaderboard') || '{}'); const userKey = telegramUser ? `tg_${telegramUser.id}` : gameState.userId; leaderboardData[userKey] = { username: telegramUser?.username || gameState.telegramUsername || 'Anonymous', telegramId: telegramUser?.id || 'unknown', firstName: telegramUser?.first_name || '', lastName: telegramUser?.last_name || '', score: gameState.totalCampaignInfluence, coins: gameState.coins, totalTaps: gameState.totalTaps, totalLifetimeCoins: gameState.totalLifetimeCoins, achievements: gameState.achievements.length, cardsOwned: gameState.userCards.length, lastUpdated: new Date().toISOString() }; localStorage.setItem('campaignLeaderboard', JSON.stringify(leaderboardData)); } catch (e) { console.warn("Could not save to leaderboard.", e); } };
-const createDefaultGameState = () => ({ coins: 500, influenceTokens: 0, dailyTaps: 0, totalTaps: 0, totalLifetimeCoins: 500, userCards: [], parties: Object.keys(GAME_CONFIG.parties).reduce((acc, partyId) => { acc[partyId] = { level: 1, xp: 0, multiplier: 1.03, totalInvestment: 0 }; return acc; }, {}), lastDailyRewardDate: null, userId: 'user_' + Math.random().toString(36).substr(2, 9), watchedVideos: {}, managerCards: [], lastPlayTime: Date.now(), achievements: [], energy: ENERGY_MAX, lastEnergyUpdate: Date.now(), combo: 0, lastTapTime: 0, streak: 0, lastLoginDate: null, activeBoosts: [], completedMissions: [], missionProgress: DAILY_MISSIONS.reduce((acc, m) => { acc[m.id] = { progress: 0 }; return acc; }, {}), telegramUsername: 'user_' + Math.random().toString(36).substr(2, 6), telegramId: null, telegramFirstName: null, telegramLastName: null, appVersion: '2.2.0' });
-const loadGameState = () => { let savedStateJSON = null; try { savedStateJSON = localStorage.getItem('campaignSimulatorSave'); } catch (e) { console.warn("Could not access localStorage.", e); } const defaultState = createDefaultGameState(); let initialState = defaultState; if (savedStateJSON) { try { const parsed = JSON.parse(savedStateJSON); initialState = { ...defaultState, ...parsed, parties: { ...defaultState.parties, ...parsed.parties }, missionProgress: { ...defaultState.missionProgress, ...parsed.missionProgress } }; } catch (e) { console.error("Failed to parse saved state, starting fresh.", e); initialState = defaultState; } } const now = Date.now(); const timeOfflineHours = (now - initialState.lastPlayTime) / (1000 * 3600); const pph = calculatePPH(initialState); const offlineEarnings = Math.min(Math.floor(pph * timeOfflineHours), pph * 8); if (offlineEarnings > 0) { initialState.coins += offlineEarnings; initialState.totalLifetimeCoins += offlineEarnings; showNotification(`Welcome back! You earned ${formatNumber(offlineEarnings)} 💰 while offline.`, 'success'); } const today = getTodayString(); if (initialState.lastLoginDate !== today) { const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); initialState.streak = initialState.lastLoginDate === yesterday.toISOString().split('T')[0] ? Math.min(initialState.streak + 1, STREAK_BONUS.length - 1) : 1; initialState.lastLoginDate = today; initialState.dailyTaps = 0; initialState.completedMissions = []; initialState.missionProgress = DAILY_MISSIONS.reduce((acc, m) => { acc[m.id] = { progress: 0 }; return acc; }, {}); } gameState = initialState; };
+const loadGameState = () => {
+    let savedStateJSON = null; let isNewUser = true;
+    try { savedStateJSON = localStorage.getItem('campaignSimulatorSave'); } catch (e) { console.warn("Could not access localStorage.", e); }
+    const defaultState = createDefaultGameState(); let initialState = defaultState;
+    if (savedStateJSON) {
+        isNewUser = false;
+        try { const parsed = JSON.parse(savedStateJSON); initialState = { ...defaultState, ...parsed }; }
+        catch (e) { console.error("Failed to parse saved state, starting fresh.", e); localStorage.removeItem('campaignSimulatorSave'); initialState = defaultState; isNewUser = true; }
+    }
+
+    // ENHANCED: Smarter Party Initialization
+    const syncedParties = {};
+    Object.keys(GAME_CONFIG.parties).forEach(partyId => {
+        syncedParties[partyId] = initialState.parties[partyId] || { id: partyId, level: 1, xp: 0, totalInvestment: 0 };
+    });
+    initialState.parties = syncedParties;
+
+    if (isNewUser) { handleReferral(initialState); }
+
+    const now = Date.now();
+    const timeOfflineHours = (now - initialState.lastPlayTime) / 3600000;
+    const pph = calculatePPH(initialState);
+    const offlineEarnings = Math.min(Math.floor(pph * timeOfflineHours), pph * 8);
+    if (offlineEarnings > 0) {
+        initialState.coins += offlineEarnings;
+        initialState.totalLifetimeCoins += offlineEarnings;
+        showNotification(`Welcome back! You earned ${formatNumber(offlineEarnings)} 💰 while offline.`, 'success');
+    }
+    const today = getTodayString();
+    if (initialState.lastLoginDate !== today) {
+        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+        initialState.streak = initialState.lastLoginDate === yesterday.toISOString().split('T')[0] ? Math.min(initialState.streak + 1, STREAK_BONUS.length - 1) : 1;
+        initialState.lastLoginDate = today;
+        initialState.dailyTaps = 0;
+        initialState.completedMissions = [];
+        initialState.missionProgress = DAILY_MISSIONS.reduce((acc, m) => ({...acc, [m.id]: {progress: 0}}), {});
+    }
+    gameState = initialState;
+};
+
 const updateAll = () => { if (!gameState) return; gameState.tapPower = calculateTapPower(gameState); gameState.totalCampaignInfluence = calculateTCI(gameState); renderHeader(); renderCurrentTab(); saveGameState(); };
 const checkAchievements = () => { const unlocked = []; ACHIEVEMENTS.forEach(ach => { if (gameState.achievements.includes(ach.id)) return; let conditionMet = false; if (ach.type === 'taps' && gameState.totalTaps >= ach.threshold) conditionMet = true; if (ach.type === 'coins' && gameState.totalLifetimeCoins >= ach.threshold) conditionMet = true; if (ach.type === 'cards' && gameState.userCards.length >= ach.threshold) conditionMet = true; if (conditionMet) { gameState.achievements.push(ach.id); gameState.coins += ach.reward; gameState.totalLifetimeCoins += ach.reward; unlocked.push(ach); } }); if (unlocked.length > 0) { const achievement = unlocked[0]; const content = `<div class="text-center"><div class="text-6xl mb-2">🏆</div><p class="text-gray-300 mb-2">${achievement.description}</p><p class="text-yellow-400 font-bold">Reward: +${formatNumber(achievement.reward)}💰</p></div>`; renderModal(`Achievement: ${achievement.title}`, content); saveGameState(); } };
 
-// ==========================================
-// 🎮 EVENT HANDLERS (Original)
-// ==========================================
+// === EVENT HANDLERS (All Original Handlers are Preserved) ===
 const handleTap = (e) => { e.preventDefault(); if (gameState.energy < 1) { showNotification("Not enough energy!", "error"); return; } const now = Date.now(); gameState.energy -= 1; let tapValue = calculateTapPower(gameState); const isCritical = Math.random() < 0.03; if (isCritical) tapValue *= 2.5; const currentComboTimeout = gameState.activeBoosts.find(b => b.comboTime) ? COMBO_TIMEOUT + 1500 : COMBO_TIMEOUT; gameState.combo = (now - gameState.lastTapTime < currentComboTimeout) ? gameState.combo + 1 : 1; let comboMultiplier = 1 + Math.min(gameState.combo * 0.03, 0.5); tapValue = Math.floor(tapValue * comboMultiplier); const { clientX, clientY } = e.touches ? e.touches[0] : e; const feedback = document.createElement('div'); feedback.className = 'tap-feedback' + (isCritical ? ' text-amber-300 scale-125' : ''); feedback.textContent = `+${formatNumber(tapValue)}` + (isCritical ? ' CRITICAL!' : ''); feedback.style.left = `${clientX - 25}px`; feedback.style.top = `${clientY - 45}px`; document.body.appendChild(feedback); setTimeout(() => { feedback.remove(); }, 900); gameState.coins += tapValue; gameState.totalTaps += 1; gameState.dailyTaps += 1; gameState.totalLifetimeCoins += tapValue; gameState.lastTapTime = now; checkMissionProgress('taps', 1); checkMissionProgress('coins', tapValue); if(gameState.dailyTaps === DAILY_GOAL && getTodayString() !== gameState.lastDailyRewardDate) { gameState.coins += DAILY_REWARD_COINS; gameState.influenceTokens += DAILY_REWARD_TOKENS; gameState.lastDailyRewardDate = getTodayString(); showNotification(`Daily Goal! +${formatNumber(DAILY_REWARD_COINS)}💰 & +${DAILY_REWARD_TOKENS}💎`, 'success'); } checkAchievements(); updateAll(); };
 const checkMissionProgress = (type, value) => { let missionCompleted = false; DAILY_MISSIONS.forEach(mission => { if(mission.type === type && !gameState.completedMissions.includes(mission.id)) { const progress = gameState.missionProgress[mission.id]; if (!progress) { gameState.missionProgress[mission.id] = { progress: 0 }; } progress.progress += value; if (progress.progress >= mission.target) { gameState.completedMissions.push(mission.id); gameState.coins += mission.reward; gameState.totalLifetimeCoins += mission.reward; showNotification(`Mission Complete: ${mission.title}! +${formatNumber(mission.reward)}💰`, 'success'); missionCompleted = true; } } }); if(missionCompleted) updateAll(); };
 
-// ==========================================
-// ⚙️ SETTINGS PANEL (Original)
-// ==========================================
-const renderSettingsPanel = () => { return `<div class="text-left max-h-[70vh] overflow-y-auto"><div class="bg-slate-900/50 p-4 rounded-lg mb-4"><h3 class="font-bold text-blue-300 mb-3 flex items-center"><i class="fa fa-user mr-2"></i> User Information</h3><div class="space-y-2 text-sm"><div class="flex justify-between"><span class="text-gray-400">Username:</span><span class="text-white">${telegramUser?.username || gameState.telegramUsername || 'N/A'}</span></div><div class="flex justify-between"><span class="text-gray-400">Name:</span><span class="text-white">${telegramUser?.first_name || ''} ${telegramUser?.last_name || ''}</span></div><div class="flex justify-between"><span class="text-gray-400">Telegram ID:</span><span class="text-white">${telegramUser?.id || 'N/A'}</span></div><div class="flex justify-between"><span class="text-gray-400">User ID:</span><span class="text-white">${gameState.userId}</span></div></div></div><div class="bg-slate-900/50 p-4 rounded-lg mb-4"><h3 class="font-bold text-green-300 mb-3 flex items-center"><i class="fa fa-info-circle mr-2"></i> About</h3><div class="space-y-2 text-sm"><p class="text-gray-300">Supreme Strategic Campaign Simulator - Iraq</p><p class="text-gray-400">Version: ${gameState.appVersion}</p><p class="text-gray-400 mt-2">Build your political campaign, hire candidates, invest in parties, and rise to power in this strategic simulation game.</p></div></div><div class="bg-slate-900/50 p-4 rounded-lg mb-4"><h3 class="font-bold text-yellow-300 mb-3 flex items-center"><i class="fa fa-phone mr-2"></i> Contact & Support</h3><div class="space-y-2 text-sm"><div class="flex justify-between"><span class="text-gray-400">Telegram:</span><span class="text-white">@campaign_admin</span></div><div class="flex justify-between"><span class="text-gray-400">Email:</span><span class="text-white">admin@campaign.com</span></div><div class="flex justify-between"><span class="text-gray-400">Phone:</span><span class="text-white">+964 XXX XXX XXXX</span></div></div></div><div class="bg-slate-900/50 p-4 rounded-lg"><h3 class="font-bold text-purple-300 mb-3 flex items-center"><i class="fa fa-chart-bar mr-2"></i> Game Statistics</h3><div class="grid grid-cols-2 gap-2 text-sm"><div class="bg-slate-800 p-2 rounded text-center"><div class="text-yellow-400 font-bold">${formatNumber(gameState.totalTaps)}</div><div class="text-gray-400 text-xs">Total Taps</div></div><div class="bg-slate-800 p-2 rounded text-center"><div class="text-green-400 font-bold">${formatNumber(gameState.totalLifetimeCoins)}</div><div class="text-gray-400 text-xs">Lifetime Funds</div></div><div class="bg-slate-800 p-2 rounded text-center"><div class="text-blue-400 font-bold">${gameState.userCards.length}</div><div class="text-gray-400 text-xs">Cards Owned</div></div><div class="bg-slate-800 p-2 rounded text-center"><div class="text-purple-400 font-bold">${gameState.achievements.length}/${ACHIEVEMENTS.length}</div><div class="text-gray-400 text-xs">Achievements</div></div></div></div><div class="mt-4 grid grid-cols-2 gap-2"><button data-action="resetGame" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm">Reset Game</button></div></div>`; };
+// === SETTINGS PANEL (ENHANCED with Contact Form) ===
+const renderSettingsPanel = () => {
+    return `<div class="text-left max-h-[80vh] overflow-y-auto pr-2">
+        <div class="bg-slate-900/50 p-4 rounded-lg mb-4">
+            <h3 class="font-bold text-blue-300 mb-3 flex items-center"><i class="fa fa-user mr-2"></i> User Information</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-400">Username:</span><span class="text-white">${telegramUser?.username || gameState.telegramUsername || 'N/A'}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Name:</span><span class="text-white">${telegramUser?.first_name || ''} ${telegramUser?.last_name || ''}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Telegram ID:</span><span class="text-white">${telegramUser?.id || 'N/A'}</span></div>
+            </div>
+        </div>
 
-// ==========================================
-// 🎨 RENDER FUNCTIONS (Original)
-// ==========================================
-const navigate = (tabName) => { activeTab = tabName; document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden')); document.getElementById(tabName)?.classList.remove('hidden'); renderNav(); renderCurrentTab(); };
-
-const renderCurrentTab = () => {
-    const container = document.getElementById(activeTab);
-    if (!container) return;
-    const renderers = {
-        tap: renderTapScreen, cards: renderCardsScreen, missions: renderMissionsScreen,
-        media: renderMediaScreen, party: renderPartyScreen, store: renderStoreScreen,
-        leaderboard: renderLeaderboardScreen, // This one is now async
-    };
-    if (activeTab === 'leaderboard') {
-        container.innerHTML = `<div class="text-center p-8"><div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div><p class="mt-4">Loading Leaderboard...</p></div>`;
-        renderLeaderboardScreen(); // Call the async version
-    } else if (renderers[activeTab]) {
-        container.innerHTML = renderers[activeTab]();
-    }
-    
-    if (activeTab === 'tap') { const tapButton = document.getElementById('tapButton'); if (tapButton) { tapButton.replaceWith(tapButton.cloneNode(true)); const newTapButton = document.getElementById('tapButton'); newTapButton.addEventListener('click', handleTap); newTapButton.addEventListener('touchstart', handleTap, { passive: false }); } }
-};
-
-const renderHeader = () => { const pph = calculatePPH(gameState); const energyPercentage = (gameState.energy / ENERGY_MAX) * 100; const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); document.getElementById('header').innerHTML = `<div class="flex justify-around text-center"><div><p class="text-2xl font-extrabold text-yellow-400">${formatNumber(gameState.coins)}</p><p class="text-xs text-gray-400">Funds 💰</p></div><div><p class="text-2xl font-extrabold text-purple-400">${formatNumber(gameState.influenceTokens)}</p><p class="text-xs text-gray-400">Tokens 💎</p></div><div><p class="text-2xl font-extrabold text-green-400">${formatNumber(calculateTCI(gameState))}</p><p class="text-xs text-gray-400">Influence 📈</p></div></div><div class="bg-slate-900/50 rounded-lg p-2 mt-3"><div class="flex justify-between items-center text-sm mb-2 px-1"><div class="text-center"><p class="text-blue-400 font-bold">+${formatNumber(calculateTapPower(gameState))}</p><p class="text-xs text-gray-400">Tap Power</p></div><div class="text-center"><p class="text-green-400 font-bold">${formatNumber(pph)}/hr</p><p class="text-xs text-gray-400">PPH</p></div><div class="text-center"><p class="text-purple-400 font-bold">${gameState.userCards.length}</p><p class="text-xs text-gray-400">Cards</p></div></div><div><div class="flex justify-between text-xs mb-1 px-1"><span class="text-yellow-400 font-bold">⚡ Energy</span><span class="text-gray-300">${Math.floor(gameState.energy)}/${ENERGY_MAX}</span></div><div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden"><div class="h-full bg-yellow-400 transition-all duration-300" style="width: ${energyPercentage}%"></div></div></div>${inflation > 1 ? `<div class="text-xs text-red-400 mt-2 text-center">⚠️ Inflation: ${inflation.toFixed(1)}x costs</div>` : ''}</div>${gameState.combo > 2 ? `<div class="text-center font-bold text-lg text-yellow-300 mt-2 animate-pulse">${gameState.combo}x Combo!</div>` : ''}`; };
-const renderNav = () => { const navItems = [ { tab: 'tap', icon: '👆', label: 'Tap' }, { tab: 'cards', icon: '🎴', label: 'Cards' }, { tab: 'missions', icon: '📋', label: 'Missions' }, { tab: 'media', icon: '📺', label: 'Media' }, { tab: 'party', icon: '🏛️', label: 'Party' }, { tab: 'store', icon: '💎', label: 'Store' }, { tab: 'leaderboard', icon: '🏆', label: 'Rank' }, ]; document.querySelector('nav').innerHTML = navItems.map(({ tab, icon, label }) => `<button data-tab="${tab}" class="nav-item flex-1 flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === tab ? 'active' : 'text-gray-400'}"><span class="text-2xl">${icon}</span><span class="text-xs mt-1">${label}</span></button>`).join(''); };
-const renderTapScreen = () => { const isBoostActive = gameState.activeBoosts.some(b => b.multiplier > 1); const progressPercent = Math.min(100, (gameState.dailyTaps / DAILY_GOAL) * 100); return `<div class="relative mb-8 mt-4"><button id="tapButton" class="w-[230px] h-[230px] rounded-full flex flex-col justify-center items-center text-white font-black text-4xl shadow-lg active:scale-95 transition-transform select-none ${isBoostActive ? 'boost-active' : ''}">Tap! <span class="text-3xl mt-1">+${formatNumber(calculateTapPower(gameState))}</span></button></div><div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-3 w-full max-w-sm mb-4"><div class="flex justify-between items-center"><div><p class="font-bold text-lg">${gameState.streak} Day Streak</p><p class="text-xs text-yellow-300">Tap Power Bonus: +${STREAK_BONUS[gameState.streak || 0]}%</p></div></div></div><div class="w-full max-w-sm p-4 bg-slate-800/80 rounded-xl border border-slate-700/50"><h3 class="font-bold text-lg text-blue-300 mb-2">Daily Goal (${DAILY_GOAL} Taps)</h3><p class="text-sm text-gray-400 mb-2 flex justify-between"><span>Progress: ${gameState.dailyTaps}/${DAILY_GOAL}</span><span class="text-yellow-400">+${formatNumber(DAILY_REWARD_COINS)}💰 & +${DAILY_REWARD_TOKENS}💎</span></p><div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full" style="width: ${progressPercent}%"></div></div></div>`; };
-const renderCardsScreen = () => { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Candidate Cards</h2>${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center"><p class="text-red-300 text-sm">⚠️ Economic Inflation: All costs are ${inflation.toFixed(1)}x higher</p></div>` : ''}<div class="space-y-4">${GAME_CONFIG.candidates.map(candidate => { const userCard = gameState.userCards.find(c => c.id === candidate.id); const isActive = candidate.active; const cardClass = userCard ? 'border-green-400 bg-slate-800' : 'border-slate-700 bg-slate-800/50'; const finalCardClass = isActive ? cardClass : 'border-slate-700 bg-slate-900/60 filter-grayscale'; const baseCost = candidate.bid; const actualBid = Math.floor(baseCost * inflation); const upgradeCost = userCard ? Math.floor(candidate.bid * userCard.level * 2 * inflation) : 0; return `<div class="p-4 rounded-xl border-2 relative ${finalCardClass}">${candidate.sponsored && isActive ? `<div class="absolute top-2 right-2 text-xs bg-yellow-500 text-black font-bold px-2 py-0.5 rounded-full">Sponsored</div>` : ''}<div class="flex gap-4 items-start"><img src="${GITHUB_ASSETS_BASE_URL}photos/${candidate.photo}" alt="${candidate.name}" class="w-20 h-20 rounded-full object-cover border-4 ${candidate.logoColor}" onerror="this.src='https://picsum.photos/seed/${candidate.id}/100/100'" /><div class="flex-1"><div class="flex justify-between"><h3 class="font-bold text-lg">${candidate.name}</h3>${userCard ? `<p class="font-bold text-yellow-400">Lv. ${userCard.level}</p>` : ''}</div><p class="text-sm text-gray-400">${GAME_CONFIG.parties[candidate.party]?.name || 'Unknown Party'}</p><p class="text-xs text-gray-300 mt-1">PPH: +${formatNumber(candidate.profitPerHour * (userCard ? userCard.level : 1))}</p><p class="text-xs text-gray-400 mt-1">${candidate.policy}</p>${userCard ? `<p class="text-xs text-green-400 mt-1">✓ Generating income</p>` : ''}${inflation > 1 && !userCard ? `<p class="text-xs text-red-400 mt-1">Base cost: ${formatNumber(baseCost)}💰</p>` : ''}</div></div><div class="flex justify-between mt-4 gap-2">${userCard ? `<button data-action="upgradeCard" data-id="${candidate.id}" class="w-full bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white disabled:bg-gray-500" ${!isActive || gameState.coins < upgradeCost ? 'disabled' : ''}>Upgrade (${formatNumber(upgradeCost)}💰)</button>` : `<button data-action="buyCard" data-id="${candidate.id}" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" ${!isActive || gameState.coins < actualBid ? 'disabled' : ''}>${isActive ? `Buy (${formatNumber(actualBid)}💰)` : '<i class="fa fa-lock mr-2"></i> Unavailable'}</button>`}</div>${!isActive ? `<p class="text-xs text-red-400 mt-2 text-center">This candidate is currently inactive. Contact admin for activation.</p>` : ''}</div>`; }).join('')}</div>`; };
-const renderMissionsScreen = () => { return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Daily Missions</h2><div class="space-y-3">${DAILY_MISSIONS.map(mission => { const progress = gameState.missionProgress[mission.id]?.progress || 0; const isCompleted = gameState.completedMissions.includes(mission.id); const percent = isCompleted ? 100 : Math.min(100, (progress / mission.target) * 100); return `<div class="bg-slate-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-white">${mission.title}</h4><span class="text-yellow-400 font-bold">+${formatNumber(mission.reward)} 💰</span></div><p class="text-sm text-gray-400 mb-3">${mission.description}</p><div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: ${percent}%"></div></div><div class="text-right text-xs mt-1 text-gray-300">${isCompleted ? 'Completed' : `${formatNumber(progress)} / ${formatNumber(mission.target)}`}</div></div>`; }).join('')}</div>`; };
-
-// UPDATED: renderMediaScreen to support multiple videos
-const renderMediaScreen = () => { 
-    const activeCandidates = GAME_CONFIG.candidates.filter(c => c.active);
-    const activeParties = Object.entries(GAME_CONFIG.parties).filter(([id, p]) => p.active);
-
-    const candidateMedia = activeCandidates.map(c => {
-        const videos = c.promoVideos || (c.promoVideo ? [{title: "Campaign Video", url: c.promoVideo, reward: c.videoReward}] : []);
-        const totalReward = videos.reduce((sum, video) => sum + video.reward, 0);
-        const watchedCount = videos.filter(video => gameState.watchedVideos['c' + c.id + '_' + videos.indexOf(video)]).length;
-        
-        return `
-        <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
-             <img src="${GITHUB_ASSETS_BASE_URL}photos/${c.photo}" alt="${c.name}" 
-                  class="w-24 h-24 rounded-lg object-cover"
-                  onerror="this.src='https://picsum.photos/seed/c${c.id}/100/100'" />
-             <div class="flex-1">
-                <h3 class="font-bold text-lg">${c.name}</h3>
-                <p class="text-sm text-gray-400 mb-2">${c.bio || 'No biography available.'}</p>
-                <div class="flex items-center justify-between">
-                    <span class="text-xs text-gray-400">${watchedCount}/${videos.length} videos watched</span>
-                    <span class="text-xs text-yellow-400">Total: +${formatNumber(totalReward)}💰</span>
+        <div class="bg-slate-900/50 p-4 rounded-lg mb-4">
+            <h3 class="font-bold text-yellow-300 mb-3 flex items-center"><i class="fa fa-gift mr-2"></i> Reward & Contact Information</h3>
+            <p class="text-xs text-gray-400 mb-3">Please provide your details below so we can contact you for rewards. This is optional and will be saved securely.</p>
+            <div class="space-y-3">
+                <div>
+                    <label for="contactNameInput" class="text-sm font-medium text-gray-300">Contact Name</label>
+                    <input type="text" id="contactNameInput" value="${gameState.contactName || ''}" placeholder="Your Full Name" class="mt-1 block w-full bg-slate-800 border border-slate-600 rounded-md py-2 px-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
-                <div class="flex gap-2 mt-2">
-                    <button data-action="showVideos" data-type="candidate" data-id="${c.id}" 
-                            class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm">
-                        Watch Videos
-                    </button>
-                    ${watchedCount === videos.length && videos.length > 0 ? 
-                        `<span class="bg-green-600 text-white text-xs px-2 py-2 rounded flex items-center"><i class="fa fa-check mr-1"></i> All Rewarded</span>` : 
-                        ''}
+                <div>
+                    <label for="contactInfoInput" class="text-sm font-medium text-gray-300">Telegram / Phone Number</label>
+                    <input type="text" id="contactInfoInput" value="${gameState.contactInfo || ''}" placeholder="@username or phone number" class="mt-1 block w-full bg-slate-800 border border-slate-600 rounded-md py-2 px-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
-             </div>
-        </div>`;
-    }).join('');
+            </div>
+            <button data-action="saveContactInfo" class="mt-4 w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded text-sm">Save Contact Info</button>
+        </div>
 
-    const partyMedia = activeParties.map(([id, p]) => {
-        const videos = p.promoVideos || (p.promoVideo ? [{title: "Party Video", url: p.promoVideo, reward: p.videoReward}] : []);
-        const totalReward = videos.reduce((sum, video) => sum + video.reward, 0);
-        const watchedCount = videos.filter(video => gameState.watchedVideos['p' + id + '_' + videos.indexOf(video)]).length;
-        
-        return `
-         <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center">
-             <img src="${GITHUB_ASSETS_BASE_URL}logos/${p.logo}" alt="${p.name}" 
-                  class="w-24 h-24 rounded-lg object-contain p-2 bg-slate-700"
-                  onerror="this.src='https://picsum.photos/seed/p${id}/100/100'" />
-             <div class="flex-1">
-                <h3 class="font-bold text-lg">${p.name}</h3>
-                <p class="text-sm text-gray-400 mb-2">${p.description}</p>
-                <div class="flex items-center justify-between">
-                    <span class="text-xs text-gray-400">${watchedCount}/${videos.length} videos watched</span>
-                    <span class="text-xs text-yellow-400">Total: +${formatNumber(totalReward)}💰</span>
-                </div>
-                <div class="flex gap-2 mt-2">
-                    <button data-action="showVideos" data-type="party" data-id="${id}" 
-                            class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm">
-                        Watch Videos
-                    </button>
-                    ${watchedCount === videos.length && videos.length > 0 ? 
-                        `<span class="bg-green-600 text-white text-xs px-2 py-2 rounded flex items-center"><i class="fa fa-check mr-1"></i> All Rewarded</span>` : 
-                        ''}
-                </div>
-             </div>
-        </div>`;
-    }).join('');
-
-    return `
-    <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Media</h2>
-    <div class="space-y-4">
-        <h3 class="font-bold text-lg text-blue-300">Candidates</h3>
-        ${candidateMedia || '<p class="text-gray-400 text-sm">No active candidate media available.</p>'}
-        <h3 class="font-bold text-lg text-blue-300 mt-4">Parties</h3>
-        ${partyMedia || '<p class="text-gray-400 text-sm">No active party media available.</p>'}
+        <div class="bg-slate-900/50 p-4 rounded-lg"><h3 class="font-bold text-purple-300 mb-3 flex items-center"><i class="fa fa-chart-bar mr-2"></i> Game Statistics</h3><div class="grid grid-cols-2 gap-2 text-sm"><div class="bg-slate-800 p-2 rounded text-center"><div class="text-yellow-400 font-bold">${formatNumber(gameState.totalTaps)}</div><div class="text-gray-400 text-xs">Total Taps</div></div><div class="bg-slate-800 p-2 rounded text-center"><div class="text-green-400 font-bold">${formatNumber(gameState.totalLifetimeCoins)}</div><div class="text-gray-400 text-xs">Lifetime Funds</div></div><div class="bg-slate-800 p-2 rounded text-center"><div class="text-blue-400 font-bold">${gameState.userCards.length}</div><div class="text-gray-400 text-xs">Cards Owned</div></div><div class="bg-slate-800 p-2 rounded text-center"><div class="text-purple-400 font-bold">${gameState.achievements.length}/${ACHIEVEMENTS.length}</div><div class="text-gray-400 text-xs">Achievements</div></div></div></div>
+        <div class="mt-4"><button data-action="resetGame" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm w-full">Reset Game</button></div>
     </div>`;
 };
 
+
+// === RENDER FUNCTIONS (All Original Renders Preserved + New Renders) ===
+const navigate = (tabName) => { activeTab = tabName; document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden')); document.getElementById(tabName)?.classList.remove('hidden'); renderNav(); renderCurrentTab(); };
+const renderCurrentTab = () => {
+    const container = document.getElementById(activeTab); if (!container) return;
+    const renderers = { tap: renderTapScreen, cards: renderCardsScreen, missions: renderMissionsScreen, media: renderMediaScreen, party: renderPartyScreen, store: renderStoreScreen, leaderboard: renderLeaderboardScreen, friends: renderFriendsScreen };
+    if (activeTab === 'leaderboard') { container.innerHTML = `<div class="text-center p-8"><div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div><p class="mt-4">Loading Leaderboard...</p></div>`; renderLeaderboardScreen(); } 
+    else if (renderers[activeTab]) { container.innerHTML = renderers[activeTab](); }
+    if (activeTab === 'tap') { const tapButton = document.getElementById('tapButton'); if (tapButton) { tapButton.replaceWith(tapButton.cloneNode(true)); const newTapButton = document.getElementById('tapButton'); newTapButton.addEventListener('click', handleTap); newTapButton.addEventListener('touchstart', handleTap, { passive: false }); } }
+};
+const renderHeader = () => { const pph = calculatePPH(gameState); const energyPercentage = (gameState.energy / ENERGY_MAX) * 100; const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); document.getElementById('header').innerHTML = `<div class="flex justify-around text-center"><div><p class="text-2xl font-extrabold text-yellow-400">${formatNumber(gameState.coins)}</p><p class="text-xs text-gray-400">Funds 💰</p></div><div><p class="text-2xl font-extrabold text-purple-400">${formatNumber(gameState.influenceTokens)}</p><p class="text-xs text-gray-400">Tokens 💎</p></div><div><p class="text-2xl font-extrabold text-green-400">${formatNumber(calculateTCI(gameState))}</p><p class="text-xs text-gray-400">Influence 📈</p></div></div><div class="bg-slate-900/50 rounded-lg p-2 mt-3"><div class="flex justify-between items-center text-sm mb-2 px-1"><div class="text-center"><p class="text-blue-400 font-bold">+${formatNumber(calculateTapPower(gameState))}</p><p class="text-xs text-gray-400">Tap Power</p></div><div class="text-center"><p class="text-green-400 font-bold">${formatNumber(pph)}/hr</p><p class="text-xs text-gray-400">PPH</p></div><div class="text-center"><p class="text-purple-400 font-bold">${gameState.userCards.length}</p><p class="text-xs text-gray-400">Cards</p></div></div><div><div class="flex justify-between text-xs mb-1 px-1"><span class="text-yellow-400 font-bold">⚡ Energy</span><span class="text-gray-300">${Math.floor(gameState.energy)}/${ENERGY_MAX}</span></div><div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden"><div class="h-full bg-yellow-400 transition-all duration-300" style="width: ${energyPercentage}%"></div></div></div>${inflation > 1 ? `<div class="text-xs text-red-400 mt-2 text-center">⚠️ Inflation: ${inflation.toFixed(1)}x costs</div>` : ''}</div>${gameState.combo > 2 ? `<div class="text-center font-bold text-lg text-yellow-300 mt-2 animate-pulse">${gameState.combo}x Combo!</div>` : ''}`; };
+const renderNav = () => { const navItems = [ { tab: 'tap', icon: '👆', label: 'Tap' }, { tab: 'cards', icon: '🎴', label: 'Cards' }, { tab: 'missions', icon: '📋', label: 'Missions' }, { tab: 'media', icon: '📺', label: 'Media' }, { tab: 'party', icon: '🏛️', label: 'Party' }, { tab: 'friends', icon: '👥', label: 'Friends' }, { tab: 'store', icon: '💎', label: 'Store' }, { tab: 'leaderboard', icon: '🏆', label: 'Rank' }, ]; document.querySelector('nav').innerHTML = navItems.map(({ tab, icon, label }) => `<button data-tab="${tab}" class="nav-item flex-1 flex flex-col items-center p-2 rounded-lg transition-colors ${activeTab === tab ? 'active' : 'text-gray-400'}"><span class="text-2xl">${icon}</span><span class="text-xs mt-1">${label}</span></button>`).join(''); };
+const renderTapScreen = () => { const isBoostActive = gameState.activeBoosts.some(b => b.multiplier > 1); const progressPercent = Math.min(100, (gameState.dailyTaps / DAILY_GOAL) * 100); return `<div class="relative mb-8 mt-4"><button id="tapButton" class="w-[230px] h-[230px] rounded-full flex flex-col justify-center items-center text-white font-black text-4xl shadow-lg active:scale-95 transition-transform select-none ${isBoostActive ? 'boost-active' : ''}">Tap! <span class="text-3xl mt-1">+${formatNumber(calculateTapPower(gameState))}</span></button></div><div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-3 w-full max-w-sm mb-4"><div class="flex justify-between items-center"><div><p class="font-bold text-lg">${gameState.streak} Day Streak</p><p class="text-xs text-yellow-300">Tap Power Bonus: +${STREAK_BONUS[gameState.streak || 0]}%</p></div></div></div><div class="w-full max-w-sm p-4 bg-slate-800/80 rounded-xl border border-slate-700/50"><h3 class="font-bold text-lg text-blue-300 mb-2">Daily Goal (${DAILY_GOAL} Taps)</h3><p class="text-sm text-gray-400 mb-2 flex justify-between"><span>Progress: ${gameState.dailyTaps}/${DAILY_GOAL}</span><span class="text-yellow-400">+${formatNumber(DAILY_REWARD_COINS)}💰 & +${DAILY_REWARD_TOKENS}💎</span></p><div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full" style="width: ${progressPercent}%"></div></div></div>`; };
+const renderCardsScreen = () => { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Candidate Cards</h2>${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center"><p class="text-red-300 text-sm">⚠️ Economic Inflation: All costs are ${inflation.toFixed(1)}x higher</p></div>` : ''}<div class="space-y-4">${GAME_CONFIG.candidates.map(candidate => { const userCard = gameState.userCards.find(c => c.id === candidate.id); const isActive = candidate.active; const cardClass = userCard ? 'border-green-400 bg-slate-800' : 'border-slate-700 bg-slate-800/50'; const finalCardClass = isActive ? cardClass : 'border-slate-700 bg-slate-900/60 filter-grayscale'; const baseCost = candidate.bid; const actualBid = Math.floor(baseCost * inflation); const upgradeCost = userCard ? Math.floor(candidate.bid * userCard.level * 2 * inflation) : 0; return `<div class="p-4 rounded-xl border-2 relative ${finalCardClass}">${candidate.sponsored && isActive ? `<div class="absolute top-2 right-2 text-xs bg-yellow-500 text-black font-bold px-2 py-0.5 rounded-full">Sponsored</div>` : ''}<div class="flex gap-4 items-start"><img src="${GITHUB_ASSETS_BASE_URL}photos/${candidate.photo}" alt="${candidate.name}" class="w-20 h-20 rounded-full object-cover border-4 ${candidate.logoColor}" onerror="this.src='https://picsum.photos/seed/${candidate.id}/100/100'" /><div class="flex-1"><div class="flex justify-between"><h3 class="font-bold text-lg">${candidate.name}</h3>${userCard ? `<p class="font-bold text-yellow-400">Lv. ${userCard.level}</p>` : ''}</div><p class="text-sm text-gray-400">${GAME_CONFIG.parties[candidate.party]?.name || 'Unknown Party'}</p><p class="text-xs text-gray-300 mt-1">PPH: +${formatNumber(candidate.profitPerHour * (userCard ? userCard.level : 1))}</p><p class="text-xs text-gray-400 mt-1">${candidate.policy}</p>${userCard ? `<p class="text-xs text-green-400 mt-1">✓ Generating income</p>` : ''}${inflation > 1 && !userCard ? `<p class="text-xs text-red-400 mt-1">Base cost: ${formatNumber(baseCost)}💰</p>` : ''}</div></div><div class="flex justify-between mt-4 gap-2">${userCard ? `<button data-action="upgradeCard" data-id="${candidate.id}" class="w-full bg-blue-600 hover:bg-blue-500 py-2 rounded font-bold text-white disabled:bg-gray-500" ${!isActive || gameState.coins < upgradeCost ? 'disabled' : ''}>Upgrade (${formatNumber(upgradeCost)}💰)</button>` : `<button data-action="buyCard" data-id="${candidate.id}" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold text-white disabled:bg-gray-500 disabled:cursor-not-allowed" ${!isActive || gameState.coins < actualBid ? 'disabled' : ''}>${isActive ? `Buy (${formatNumber(actualBid)}💰)` : '<i class="fa fa-lock mr-2"></i> Unavailable'}</button>`}</div>${!isActive ? `<p class="text-xs text-red-400 mt-2 text-center">This candidate is currently inactive. Contact admin for activation.</p>` : ''}</div>`; }).join('')}</div>`; };
+const renderMissionsScreen = () => { return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Daily Missions</h2><div class="space-y-3">${DAILY_MISSIONS.map(mission => { const progress = gameState.missionProgress[mission.id]?.progress || 0; const isCompleted = gameState.completedMissions.includes(mission.id); const percent = isCompleted ? 100 : Math.min(100, (progress / mission.target) * 100); return `<div class="bg-slate-800 p-4 rounded-lg ${isCompleted ? 'opacity-60' : ''}"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-white">${mission.title}</h4><span class="text-yellow-400 font-bold">+${formatNumber(mission.reward)} 💰</span></div><p class="text-sm text-gray-400 mb-3">${mission.description}</p><div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: ${percent}%"></div></div><div class="text-right text-xs mt-1 text-gray-300">${isCompleted ? 'Completed' : `${formatNumber(progress)} / ${formatNumber(mission.target)}`}</div></div>`; }).join('')}</div>`; };
+const renderMediaScreen = () => {  const activeCandidates = GAME_CONFIG.candidates.filter(c => c.active); const activeParties = Object.entries(GAME_CONFIG.parties).filter(([id, p]) => p.active); const candidateMedia = activeCandidates.map(c => { const videos = c.promoVideos || (c.promoVideo ? [{title: "Campaign Video", url: c.promoVideo, reward: c.videoReward}] : []); const totalReward = videos.reduce((sum, video) => sum + video.reward, 0); const watchedCount = videos.filter(video => gameState.watchedVideos['c' + c.id + '_' + videos.indexOf(video)]).length; return ` <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center"> <img src="${GITHUB_ASSETS_BASE_URL}photos/${c.photo}" alt="${c.name}" class="w-24 h-24 rounded-lg object-cover" onerror="this.src='https://picsum.photos/seed/c${c.id}/100/100'" /> <div class="flex-1"> <h3 class="font-bold text-lg">${c.name}</h3> <p class="text-sm text-gray-400 mb-2">${c.bio || 'No biography available.'}</p> <div class="flex items-center justify-between"> <span class="text-xs text-gray-400">${watchedCount}/${videos.length} videos watched</span> <span class="text-xs text-yellow-400">Total: +${formatNumber(totalReward)}💰</span> </div> <div class="flex gap-2 mt-2"> <button data-action="showVideos" data-type="candidate" data-id="${c.id}" class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm"> Watch Videos </button> ${watchedCount === videos.length && videos.length > 0 ? `<span class="bg-green-600 text-white text-xs px-2 py-2 rounded flex items-center"><i class="fa fa-check mr-1"></i> All Rewarded</span>` : ''} </div> </div> </div>`; }).join(''); const partyMedia = activeParties.map(([id, p]) => { const videos = p.promoVideos || (p.promoVideo ? [{title: "Party Video", url: p.promoVideo, reward: p.videoReward}] : []); const totalReward = videos.reduce((sum, video) => sum + video.reward, 0); const watchedCount = videos.filter(video => gameState.watchedVideos['p' + id + '_' + videos.indexOf(video)]).length; return ` <div class="bg-slate-800 p-4 rounded-xl flex gap-4 items-center"> <img src="${GITHUB_ASSETS_BASE_URL}logos/${p.logo}" alt="${p.name}" class="w-24 h-24 rounded-lg object-contain p-2 bg-slate-700" onerror="this.src='https://picsum.photos/seed/p${id}/100/100'" /> <div class="flex-1"> <h3 class="font-bold text-lg">${p.name}</h3> <p class="text-sm text-gray-400 mb-2">${p.description}</p> <div class="flex items-center justify-between"> <span class="text-xs text-gray-400">${watchedCount}/${videos.length} videos watched</span> <span class="text-xs text-yellow-400">Total: +${formatNumber(totalReward)}💰</span> </div> <div class="flex gap-2 mt-2"> <button data-action="showVideos" data-type="party" data-id="${id}" class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-sm"> Watch Videos </button> ${watchedCount === videos.length && videos.length > 0 ? `<span class="bg-green-600 text-white text-xs px-2 py-2 rounded flex items-center"><i class="fa fa-check mr-1"></i> All Rewarded</span>` : ''} </div> </div> </div>`; }).join(''); return ` <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Media</h2> <div class="space-y-4"> <h3 class="font-bold text-lg text-blue-300">Candidates</h3> ${candidateMedia || '<p class="text-gray-400 text-sm">No active candidate media available.</p>'} <h3 class="font-bold text-lg text-blue-300 mt-4">Parties</h3> ${partyMedia || '<p class="text-gray-400 text-sm">No active party media available.</p>'} </div>`; };
 const renderPartyScreen = () => { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Political Parties</h2>${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center"><p class="text-red-300 text-sm">⚠️ Inflation: All costs are ${inflation.toFixed(1)}x higher</p></div>` : ''}<div class="space-y-4">${Object.entries(GAME_CONFIG.parties).map(([id, party]) => { const isActive = party.active; const partyState = gameState.parties[id] || { level: 1, xp: 0 }; const xpPercent = (partyState.xp / (partyState.level * 750)) * 100; const upgradeCost = Math.floor(partyState.level * 8 * inflation); if (!isActive) { return `<div class="p-4 rounded-xl border border-slate-700 bg-slate-900/60 filter-grayscale"><div class="flex gap-4 items-center"><img src="${GITHUB_ASSETS_BASE_URL}logos/${party.logo}" alt="${party.name}" class="w-16 h-16 rounded-full object-contain p-1 border-4 border-slate-600 bg-slate-700" onerror="this.src='https://picsum.photos/seed/party${id}/80/80'" /><div class="flex-1"><h3 class="font-bold text-lg text-gray-500">${party.name}</h3><p class="text-sm text-gray-600">This party is currently inactive.</p></div></div></div>`; } return `<div class="p-4 rounded-xl border border-slate-700 ${party.color || 'bg-slate-800'}"><div class="flex gap-4 items-center"><img src="${GITHUB_ASSETS_BASE_URL}logos/${party.logo}" alt="${party.name}" class="w-16 h-16 rounded-full object-contain p-1 border-4 border-slate-400 bg-slate-800" onerror="this.src='https://picsum.photos/seed/party${id}/80/80'" /><div class="flex-1"><h3 class="font-bold text-lg">${party.name}</h3><p class="text-sm text-gray-200">Level ${partyState.level}</p></div></div><p class="text-sm text-gray-200 my-3">${party.description}</p><div class="text-xs text-gray-200">XP: ${formatNumber(partyState.xp)} / ${formatNumber(partyState.level * 750)}</div><div class="w-full bg-gray-600 rounded-full h-2 mb-3"><div class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: ${xpPercent}%"></div></div><div class="flex gap-2"><button data-action="investParty" data-id="${id}" class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">Invest (2k💰)</button><button data-action="upgradeParty" data-id="${id}" class="w-1/2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded disabled:bg-gray-500" ${gameState.influenceTokens < upgradeCost ? 'disabled' : ''}>Upgrade (${formatNumber(upgradeCost)}💎)</button></div></div>`; }).join('')}</div>`; };
 const renderStoreScreen = () => { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Campaign Store</h2>${inflation > 1 ? `<div class="bg-red-900/30 p-3 rounded-lg mb-4 text-center"><p class="text-red-300 text-sm">⚠️ Inflation: All costs are ${inflation.toFixed(1)}x higher</p></div>` : ''}<div class="space-y-4"><div><h3 class="font-bold text-lg text-blue-300 mb-2">Staff</h3>${GAME_CONFIG.managers.map(manager => { const actualCost = Math.floor(manager.cost * inflation); return `<div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2"><div><h4 class="font-bold text-white"><span class="text-2xl">${manager.icon}</span> ${manager.name}</h4><p class="text-sm text-gray-400">${manager.description}</p>${inflation > 1 ? `<p class="text-xs text-red-400">Base cost: ${formatNumber(manager.cost)}💰</p>` : ''}</div><button data-action="buyManager" data-id="${manager.id}" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.managerCards.includes(manager.id) || gameState.coins < actualCost ? 'disabled' : ''}>${gameState.managerCards.includes(manager.id) ? 'Hired' : `Hire (${formatNumber(actualCost)}💰)`}</button></div>`; }).join('')}</div><div><h3 class="font-bold text-lg text-purple-400 mb-2">Boosts</h3>${BOOSTS.map(boost => { const actualCost = Math.floor(boost.cost * inflation); return `<div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-2"><div><h4 class="font-bold text-white"><span class="text-2xl">${boost.icon}</span> ${boost.name}</h4><p class="text-sm text-gray-400">${boost.duration > 0 ? `${boost.duration} seconds` : 'Instant effect'}</p>${inflation > 1 ? `<p class="text-xs text-red-400">Base cost: ${formatNumber(boost.cost)}💰</p>` : ''}</div><button data-action="activateBoost" data-id="${boost.id}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500" ${gameState.coins < actualCost ? 'disabled' : ''}>Activate (${formatNumber(actualCost)}💰)</button></div>`; }).join('')}</div></div>`; };
-
-// MODIFIED: renderLeaderboardScreen is now async and fetches from Firebase
-const renderLeaderboardScreen = async () => {
-    const container = document.getElementById('leaderboard');
-    if (!container) return; // Make sure the container exists
-
-    // Show a loading state immediately
-    container.innerHTML = `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Leaderboard</h2><div class="text-center p-8"><div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div><p class="mt-4">Loading Ranks...</p></div>`;
-
-    try {
-        const querySnapshot = await db.collection("leaderboard").orderBy("influence", "desc").limit(20).get();
-        const topPlayers = querySnapshot.docs.map(doc => doc.data());
-
-        const leaderboardHTML = `
-            <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Leaderboard</h2>
-            <div class="space-y-2">
-                ${topPlayers.map((player, index) => `
-                <div class="flex items-center bg-slate-800 p-3 rounded-lg ${player.userId === gameState.userId ? 'border-2 border-blue-500' : ''}">
-                    <div class="text-lg font-bold w-8 text-center text-gray-400">${index + 1}</div>
-                    <div class="font-bold flex-1">${player.username}</div>
-                    <div class="font-bold text-yellow-400">${formatNumber(player.influence)}</div>
-                </div>
-                `).join('')}
-                ${topPlayers.length === 0 ? `<p class="text-center text-gray-400">Leaderboard is empty. Be the first!</p>` : ''}
-            </div>
-            <div class="mt-4 p-4 bg-slate-800 rounded-lg">
-                <h3 class="font-bold text-lg mb-2">Your Stats</h3>
-                <div class="grid grid-cols-2 gap-2 text-sm">
-                    <div class="bg-slate-700 p-2 rounded">Total Taps: ${formatNumber(gameState.totalTaps)}</div>
-                    <div class="bg-slate-700 p-2 rounded">Lifetime Funds: ${formatNumber(gameState.totalLifetimeCoins)}</div>
-                    <div class="bg-slate-700 p-2 rounded">Cards Owned: ${gameState.userCards.length}</div>
-                    <div class="bg-slate-700 p-2 rounded">Achievements: ${gameState.achievements.length}/${ACHIEVEMENTS.length}</div>
-                </div>
-            </div>`;
-        container.innerHTML = leaderboardHTML;
-    } catch (error) {
-        console.error("Error fetching leaderboard:", error);
-        container.innerHTML = `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Leaderboard</h2><p class="text-center text-red-400">Could not load leaderboard data. Check console for errors.</p>`;
-    }
-};
-
+const renderFriendsScreen = () => { const referralLink = `${window.location.origin}${window.location.pathname}?ref=${gameState.referralCode}`; return `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Invite Friends</h2> <div class="bg-slate-800 p-6 rounded-xl text-center border border-slate-700"> <i class="fa fa-users text-5xl text-blue-400 mb-4"></i> <p class="text-gray-300 mb-2">Invite a friend and they'll get a starting bonus of <span class="font-bold text-yellow-400">${formatNumber(REFERRAL_BONUS_COINS)} coins!</span></p> <p class="text-gray-400 text-sm mb-4">Your referral score increases for every new player who joins using your link.</p> <div class="bg-slate-900/50 p-4 rounded-lg mb-4"> <p class="text-sm text-gray-400 mb-1">Your Unique Invite Link</p> <input type="text" readonly value="${referralLink}" class="w-full bg-slate-800 text-center text-yellow-300 p-2 rounded border border-slate-600"> </div> <button data-action="shareReferral" data-link="${referralLink}" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg text-lg flex items-center justify-center gap-2 transition-transform active:scale-95"> <i class="fa fa-share-alt"></i> Share Your Invite Link </button> <div class="mt-6 pt-4 border-t border-slate-700"> <h3 class="font-bold text-lg text-blue-300 mb-2">Your Referral Stats</h3> <div class="flex justify-around"> <div class="text-center"> <p class="text-2xl font-bold text-white">${formatNumber(gameState.referrals || 0)}</p> <p class="text-xs text-gray-400">Friends Invited</p> </div> <div class="text-center"> <p class="text-2xl font-bold text-white">${formatNumber(gameState.referralScore || 0)}</p> <p class="text-xs text-gray-400">Referral Score</p> </div> </div> </div> </div>`; };
+const renderLeaderboardScreen = async () => { const container = document.getElementById('leaderboard'); if (!container) return; if (!db) { container.innerHTML = `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Leaderboard</h2><p class="text-center text-red-400">Could not connect to online services to load the leaderboard.</p>`; return; } try { const querySnapshot = await db.collection("leaderboard").orderBy("influence", "desc").limit(20).get(); const topPlayers = querySnapshot.docs.map(doc => doc.data()); const leaderboardHTML = ` <h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Leaderboard</h2> <div class="space-y-2"> ${topPlayers.map((player, index) => ` <div class="flex items-center bg-slate-800 p-3 rounded-lg ${player.userId === gameState.userId ? 'border-2 border-blue-500' : ''}"> <div class="text-lg font-bold w-8 text-center text-gray-400">${index + 1}</div> <div class="font-bold flex-1">${player.username}</div> <div class="font-bold text-yellow-400">${formatNumber(player.influence)}</div> </div> `).join('')} ${topPlayers.length === 0 ? `<p class="text-center text-gray-400">Leaderboard is empty. Be the first!</p>` : ''} </div> <div class="mt-4 p-4 bg-slate-800 rounded-lg"> <h3 class="font-bold text-lg mb-2">Your Stats</h3> <div class="grid grid-cols-2 gap-2 text-sm"> <div class="bg-slate-700 p-2 rounded">Total Taps: ${formatNumber(gameState.totalTaps)}</div> <div class="bg-slate-700 p-2 rounded">Lifetime Funds: ${formatNumber(gameState.totalLifetimeCoins)}</div> <div class="bg-slate-700 p-2 rounded">Cards Owned: ${gameState.userCards.length}</div> <div class="bg-slate-700 p-2 rounded">Achievements: ${gameState.achievements.length}/${ACHIEVEMENTS.length}</div> </div> </div>`; container.innerHTML = leaderboardHTML; } catch (error) { console.error("Error fetching leaderboard:", error); container.innerHTML = `<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">Leaderboard</h2><p class="text-center text-red-400">Could not load leaderboard data. Check console for errors.</p>`; } };
 const renderModal = (title, content, showClose = true) => { document.getElementById('modalContainer').innerHTML = `<div data-action="closeModal" class="modal-overlay"></div><div class="modal bg-slate-800 w-[90%] max-w-lg rounded-xl p-6 border-2 border-blue-500 shadow-lg"><h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">${title}</h2><div>${content}</div>${showClose ? `<button data-action="closeModal" class="w-full mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">Close</button>` : ''}</div>`; };
 const closeModal = () => { document.getElementById('modalContainer').innerHTML = ''; };
 
-// ==========================================
-// ⚡ ACTION HANDLERS (Updated for multiple videos)
-// ==========================================
+// === ACTION HANDLERS (Original Handlers Preserved + New Actions) ===
 const handleAction = (e) => {
     const target = e.target.closest('[data-action]');
     if (!target) return;
@@ -421,120 +366,41 @@ const handleAction = (e) => {
         closeModal,
         buyCard: () => { const c = GAME_CONFIG.candidates.find(c => c.id == id); if (!c) { showNotification("Candidate not found!", "error"); return; } if (!c.active) { showNotification("This candidate is not active!", "error"); return; } const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const actualBid = Math.floor(c.bid * inflation); if (gameState.coins >= actualBid) { gameState.coins -= actualBid; gameState.userCards.push({ id: parseInt(id), level: 1 }); showNotification(`Hired ${c.name}!`, 'success'); checkAchievements(); updateAll(); } else { showNotification(`Need ${formatNumber(actualBid)} coins!`, "error"); } },
         upgradeCard: () => { const uc = gameState.userCards.find(uc => uc.id == id); const c = GAME_CONFIG.candidates.find(c => c.id == id); if (!c.active) { showNotification("Cannot upgrade an inactive candidate!", "error"); return; } if(uc) { const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const upgradeCost = Math.floor(c.bid * uc.level * 2 * inflation); if (gameState.coins >= upgradeCost) { gameState.coins -= upgradeCost; uc.level++; showNotification(`${c.name} upgraded to Lv.${uc.level}!`, 'success'); checkMissionProgress('level', uc.level); updateAll(); } else { showNotification(`Need ${formatNumber(upgradeCost)} coins!`, "error"); } } },
-        // NEW: showVideos function to display multiple videos
-        showVideos: () => {
-            const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
-            const videos = item.promoVideos || (item.promoVideo ? [{title: "Campaign Video", url: item.promoVideo, reward: item.videoReward}] : []);
-            
-            if (!videos || videos.length === 0) {
-                showNotification("No videos available for this item.", "error");
-                return;
-            }
-
-            const videosHTML = videos.map((video, index) => {
-                const videoId = (type === 'candidate' ? 'c' : 'p') + id + '_' + index;
-                const hasWatched = gameState.watchedVideos[videoId];
-                
-                // Fix YouTube URL - convert shorts to embed format
-                let videoUrl = video.url;
-                
-                // Handle YouTube Shorts URLs
-                if (videoUrl.includes('youtube.com/shorts/')) {
-                    const videoId = videoUrl.split('/shorts/')[1].split('?')[0];
-                    videoUrl = `https://www.youtube.com/embed/${videoId}`;
-                }
-                // Handle regular YouTube watch URLs
-                else if (videoUrl.includes('watch?v=')) {
-                    videoUrl = videoUrl.replace("watch?v=", "embed/");
-                }
-                // Handle youtu.be short URLs
-                else if (videoUrl.includes('youtu.be/')) {
-                    const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
-                    videoUrl = `https://www.youtube.com/embed/${videoId}`;
-                }
-                // If it's already an embed URL, use as-is
-                else if (!videoUrl.includes('embed')) {
-                    // Fallback: try to extract video ID from various formats
-                    const videoIdMatch = videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-                    if (videoIdMatch) {
-                        videoUrl = `https://www.youtube.com/embed/${videoIdMatch[1]}`;
-                    }
-                }
-
-                return `
-                <div class="mb-6 p-4 bg-slate-700 rounded-lg">
-                    <h4 class="font-bold text-lg mb-2">${video.title}</h4>
-                    <div class="aspect-w-16 aspect-h-9 mb-3">
-                        <iframe src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-48 rounded"></iframe>
-                    </div>
-                    <div class="flex gap-2">
-                        <button data-action="claimVideoReward" data-type="${type}" data-id="${id}" data-index="${index}" 
-                                class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded ${hasWatched ? 'opacity-50 cursor-not-allowed' : ''}" 
-                                ${hasWatched ? 'disabled' : ''}>
-                            ${hasWatched ? 'Already Rewarded' : `Claim ${formatNumber(video.reward)}💰`}
-                        </button>
-                    </div>
-                    ${hasWatched ? `<p class="text-center text-green-400 text-sm mt-2">Reward already claimed</p>` : ''}
-                </div>`;
-            }).join('');
-
-            const content = `
-                <div class="max-h-[70vh] overflow-y-auto">
-                    ${videosHTML}
-                </div>
-                <div class="mt-4">
-                    <button data-action="closeModal" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">
-                        Close
-                    </button>
-                </div>
-            `;
-            renderModal(`${item.name} - Campaign Videos`, content, false);
-        },
-        // UPDATED: claimVideoReward to handle multiple videos
-        claimVideoReward: () => {
-            const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id];
-            const videoIndex = parseInt(target.dataset.index);
-            const videos = item.promoVideos || (item.promoVideo ? [{title: "Campaign Video", url: item.promoVideo, reward: item.videoReward}] : []);
-            const video = videos[videoIndex];
-            const videoId = (type === 'candidate' ? 'c' : 'p') + id + '_' + videoIndex;
-            
-            if (video && !gameState.watchedVideos[videoId]) {
-                gameState.coins += video.reward;
-                gameState.totalLifetimeCoins += video.reward;
-                gameState.watchedVideos[videoId] = true;
-                showNotification(`Watched "${video.title}", +${formatNumber(video.reward)}💰!`, 'success');
-                closeModal();
-                updateAll();
-            }
-        },
+        showVideos: () => { const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id]; const videos = item.promoVideos || (item.promoVideo ? [{title: "Campaign Video", url: item.promoVideo, reward: item.videoReward}] : []); if (!videos || videos.length === 0) { showNotification("No videos available for this item.", "error"); return; } const videosHTML = videos.map((video, index) => { const videoIdKey = (type === 'candidate' ? 'c' : 'p') + id + '_' + index; const hasWatched = gameState.watchedVideos[videoIdKey]; let videoUrl = video.url; if (videoUrl.includes('youtube.com/shorts/')) { const vId = videoUrl.split('/shorts/')[1].split('?')[0]; videoUrl = `https://www.youtube.com/embed/${vId}`; } else if (videoUrl.includes('watch?v=')) { videoUrl = videoUrl.replace("watch?v=", "embed/"); } else if (videoUrl.includes('youtu.be/')) { const vId = videoUrl.split('youtu.be/')[1].split('?')[0]; videoUrl = `https://www.youtube.com/embed/${vId}`; } else if (!videoUrl.includes('embed')) { const vIdMatch = videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/); if (vIdMatch) { videoUrl = `https://www.youtube.com/embed/${vIdMatch[1]}`; } } return `<div class="mb-6 p-4 bg-slate-700 rounded-lg"><h4 class="font-bold text-lg mb-2">${video.title}</h4><div class="aspect-w-16 aspect-h-9 mb-3"><iframe src="${videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-48 rounded"></iframe></div><div class="flex gap-2"><button data-action="claimVideoReward" data-type="${type}" data-id="${id}" data-index="${index}" class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded ${hasWatched ? 'opacity-50 cursor-not-allowed' : ''}" ${hasWatched ? 'disabled' : ''}>${hasWatched ? 'Already Rewarded' : `Claim ${formatNumber(video.reward)}💰`}</button></div>${hasWatched ? `<p class="text-center text-green-400 text-sm mt-2">Reward already claimed</p>` : ''}</div>`; }).join(''); const content = `<div class="max-h-[70vh] overflow-y-auto">${videosHTML}</div><div class="mt-4"><button data-action="closeModal" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded">Close</button></div>`; renderModal(`${item.name} - Campaign Videos`, content, false); },
+        claimVideoReward: () => { const item = type === 'candidate' ? GAME_CONFIG.candidates.find(c => c.id == id) : GAME_CONFIG.parties[id]; const videoIndex = parseInt(target.dataset.index); const videos = item.promoVideos || (item.promoVideo ? [{title: "Campaign Video", url: item.promoVideo, reward: item.videoReward}] : []); const video = videos[videoIndex]; const videoIdKey = (type === 'candidate' ? 'c' : 'p') + id + '_' + videoIndex; if (video && !gameState.watchedVideos[videoIdKey]) { gameState.coins += video.reward; gameState.totalLifetimeCoins += video.reward; gameState.watchedVideos[videoIdKey] = true; showNotification(`Watched "${video.title}", +${formatNumber(video.reward)}💰!`, 'success'); closeModal(); updateAll(); } },
         investParty: () => { const party = GAME_CONFIG.parties[id]; const partyState = gameState.parties[id]; if (!party.active) { showNotification("This party is currently inactive!", "error"); return; } const investmentAmount = 2000; if (partyState && gameState.coins >= investmentAmount) { gameState.coins -= investmentAmount; partyState.xp += 150; partyState.totalInvestment += investmentAmount; if(partyState.xp >= partyState.level * 750) { partyState.xp -= partyState.level * 750; partyState.level++; showNotification(`${party.name} leveled up to Lv.${partyState.level}!`, 'success'); } updateAll(); } else { showNotification(`Need ${formatNumber(investmentAmount)} coins!`, "error"); } },
         upgradeParty: () => { const party = GAME_CONFIG.parties[id]; const partyState = gameState.parties[id]; const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const upgradeCost = Math.floor(partyState.level * 8 * inflation); if (!party.active) { showNotification("Cannot upgrade an inactive party!", "error"); return; } if(partyState && gameState.influenceTokens >= upgradeCost) { gameState.influenceTokens -= upgradeCost; partyState.level++; showNotification(`${party.name} upgraded to Lv.${partyState.level}!`, 'success'); updateAll(); } else { showNotification(`Need ${formatNumber(upgradeCost)} influence tokens!`, "error"); } },
         buyManager: () => { const m = GAME_CONFIG.managers.find(m => m.id === id); const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const actualCost = Math.floor(m.cost * inflation); if(m && gameState.coins >= actualCost && !gameState.managerCards.includes(id)) { gameState.coins -= actualCost; gameState.managerCards.push(id); showNotification(`Hired ${m.name} for ${formatNumber(actualCost)}💰!`, 'success'); updateAll(); } else if (gameState.managerCards.includes(id)) { showNotification("You already hired this manager!", "info"); } else { showNotification(`Need ${formatNumber(actualCost)} coins!`, "error"); } },
         activateBoost: () => { const b = BOOSTS.find(b => b.id === id); const inflation = getInflationMultiplier(gameState.totalLifetimeCoins); const actualCost = Math.floor(b.cost * inflation); if(b && gameState.coins >= actualCost) { gameState.coins -= actualCost; if(b.energy) { gameState.energy = Math.min(ENERGY_MAX, gameState.energy + b.energy); showNotification(`${b.name} activated! Energy restored.`, 'success'); } if(b.duration > 0) { gameState.activeBoosts.push({ id, endTime: Date.now() + b.duration * 1000, multiplier: b.multiplier, comboTime: b.comboTime }); showNotification(`${b.name} activated for ${b.duration} seconds!`, 'success'); } updateAll(); } else { showNotification(`Need ${formatNumber(actualCost)} coins!`, "error"); } },
-        resetGame: () => { if (confirm("Are you sure you want to reset the game? All progress will be lost!")) { gameState = createDefaultGameState(); showNotification("Game reset successfully", 'success'); closeModal(); updateAll(); } }
+        resetGame: () => { if (confirm("Are you sure you want to reset the game? All progress will be lost!")) { localStorage.removeItem('campaignSimulatorSave'); window.location.reload(); } },
+        shareReferral: async () => { const link = target.dataset.link; const shareData = { title: 'Join the Campaign!', text: `Join me and get a ${formatNumber(REFERRAL_BONUS_COINS)} coin bonus!`, url: link }; try { if (navigator.share) { await navigator.share(shareData); } else { await navigator.clipboard.writeText(link); showNotification('Invite link copied!', 'success'); } } catch (error) { console.error('Sharing failed:', error); await navigator.clipboard.writeText(link); showNotification('Link copied instead!', 'info'); } },
+        saveContactInfo: () => { const nameInput = document.getElementById('contactNameInput'); const infoInput = document.getElementById('contactInfoInput'); if (nameInput && infoInput) { gameState.contactName = nameInput.value.trim(); gameState.contactInfo = infoInput.value.trim(); saveGameState(); showNotification('Contact information saved!', 'success'); closeModal(); } },
     };
     if (actions[action]) actions[action]();
 };
 
-// ==========================================
-// 🤖 TELEGRAM INTEGRATION (Original)
-// ==========================================
+// === TELEGRAM INTEGRATION ===
 const initTelegram = () => { if (window.Telegram && window.Telegram.WebApp) { const tg = window.Telegram.WebApp; tg.expand(); telegramUser = tg.initDataUnsafe?.user || null; if (telegramUser) { console.log("Telegram user detected:", telegramUser); gameState.telegramUsername = telegramUser.username || `user_${telegramUser.id}`; gameState.telegramId = telegramUser.id; gameState.telegramFirstName = telegramUser.first_name || ''; gameState.telegramLastName = telegramUser.last_name || ''; } } else { console.log("Running outside Telegram, using test mode"); telegramUser = { id: Math.floor(Math.random() * 1000000), username: 'test_user_' + Math.random().toString(36).substr(2, 5), first_name: 'Test', last_name: 'User', language_code: 'en' }; gameState.telegramUsername = telegramUser.username; gameState.telegramId = telegramUser.id; gameState.telegramFirstName = telegramUser.first_name; gameState.telegramLastName = telegramUser.last_name; } };
 
-// ==========================================
-// 🚀 GAME INITIALIZATION (Original)
-// ==========================================
+// === GAME INITIALIZATION (ENHANCED) ===
 const initGame = async () => {
-    await loadExternalConfig();
-    loadGameState();
-    initTelegram();
-    setInterval(() => { if (!gameState) return; const now = Date.now(); const timePassed = (now - gameState.lastEnergyUpdate) / 1000; gameState.energy = Math.min(ENERGY_MAX, gameState.energy + timePassed * ENERGY_REGEN_RATE); gameState.lastEnergyUpdate = now; gameState.activeBoosts = gameState.activeBoosts.filter(b => b.endTime > now); renderHeader(); }, 1000);
-    setInterval(saveGameState, 30000);
-    document.body.addEventListener('click', (e) => { handleAction(e); const navButton = e.target.closest('[data-tab]'); if (navButton) navigate(navButton.dataset.tab); });
-    document.getElementById('settingsToggle').addEventListener('click', () => { renderModal('Settings', renderSettingsPanel()); });
-    navigate('tap');
-    updateAll();
-    document.getElementById('loadingIndicator').style.display = 'none';
+    try {
+        await loadExternalConfig();
+        loadGameState();
+        initTelegram();
+        setInterval(() => { if (!gameState) return; const now = Date.now(); const timePassed = (now - gameState.lastEnergyUpdate) / 1000; gameState.energy = Math.min(ENERGY_MAX, gameState.energy + timePassed * ENERGY_REGEN_RATE); gameState.lastEnergyUpdate = now; gameState.activeBoosts = gameState.activeBoosts.filter(b => b.endTime > now); renderHeader(); }, 1000);
+        setInterval(saveGameState, 30000);
+        document.body.addEventListener('click', (e) => { handleAction(e); const navButton = e.target.closest('[data-tab]'); if (navButton) navigate(navButton.dataset.tab); });
+        document.getElementById('settingsToggle').addEventListener('click', () => { renderModal('Settings', renderSettingsPanel()); });
+        navigate('tap');
+        updateAll();
+    } catch (error) {
+        console.error("Critical error during initialization:", error);
+        document.getElementById('loadingIndicator').innerHTML = `<p class="text-red-400 text-center">A critical error occurred. Please refresh.</p>`;
+        return;
+    } finally {
+        document.getElementById('loadingIndicator').style.display = 'none';
+    }
 };
 
 initGame();
